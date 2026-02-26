@@ -64,27 +64,25 @@ def _xarray_snippet(
     model: str = "",
 ) -> str:
     """Return a Python snippet that opens hrefs with xarray, with metadata comments."""
-    lines = ["import xarray as xr"]
-    meta: List[str] = []
+    lines = ["import xarray as xr", ""]
     if experiment:
-        meta.append(f"experiment={experiment!r}")
+        lines.append(f"# experiment : {experiment!r}")
     if model:
-        meta.append(f"model={model!r}")
+        lines.append(f"# model      : {model!r}")
     if variable:
-        meta.append(f"variable={variable!r}")
-    if meta:
-        lines.append("# " + ", ".join(meta))
-    lines.append("")
+        lines.append(f"# variable   : {variable!r}")
+    if experiment or model or variable:
+        lines.append("")
     if len(hrefs) == 1:
         lines.append(f'ds = xr.open_dataset(r"{hrefs[0]}", engine="netcdf4", decode_times=True)')
     else:
-        lines.append(f"# {len(hrefs)} timestep file(s)")
+        lines.append(f"# {len(hrefs)} file(s)")
         lines.append("paths = [")
         for h in hrefs:
             lines.append(f'    r"{h}",')
         lines.append("]")
         lines.append(
-            'ds = xr.open_mfdataset(paths, engine="netcdf4", decode_times=True, combine="by_coords")'
+            'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)'
         )
     return "\n".join(lines)
 
@@ -113,47 +111,50 @@ def _collection_xarray_snippet(items: List[dict]) -> str:
     if not hrefs:
         return "# No data files found in this selection."
 
-    variable_str = variables[0] if len(variables) == 1 else ", ".join(variables)
+    variable_str = variables[0] if len(variables) == 1 else ", ".join(sorted(variables))
 
-    lines = ["import xarray as xr", ""]
+    lines = [
+        "import xarray as xr",
+        "import intake",
+        "",
+    ]
     if experiment:
-        lines.append(f"# Experiment : {experiment!r}")
+        lines.append(f"# experiment : {experiment!r}")
     if model:
-        lines.append(f"# Model      : {model!r}")
+        lines.append(f"# model      : {model!r}")
     if variables:
-        lines.append(f"# Variable(s): {variable_str!r}")
-    lines.append(f"# Files      : {len(hrefs)}")
+        lines.append(f"# variable(s): {variable_str!r}")
+    lines.append(f"# files      : {len(hrefs)}")
     lines.append("")
 
     if len(hrefs) == 1:
-        lines.append(f'ds = xr.open_dataset(r"{hrefs[0]}", engine="netcdf4", decode_times=True)')
-    else:
-        lines.append("paths = [")
-        for h in hrefs:
-            lines.append(f'    r"{h}",')
-        lines.append("]")
-        lines.append(
-            'ds = xr.open_mfdataset(paths, engine="netcdf4", decode_times=True, combine="by_coords")'
-        )
-
-    lines += [
-        "",
-        "# --- Alternatively with intake-xarray (pip install intake intake-xarray) ---",
-        "import intake",
-    ]
-    if len(hrefs) == 1:
-        lines.append(
-            f'source = intake.open_netcdf(r"{hrefs[0]}",'
-            f' xarray_kwargs={{"engine": "netcdf4", "decode_times": True}})'
-        )
+        lines += [
+            "# --- xarray ---",
+            f'ds = xr.open_dataset(r"{hrefs[0]}", engine="netcdf4", decode_times=True)',
+            "",
+            "# --- intake-xarray ---",
+            f'source = intake.open_netcdf(r"{hrefs[0]}", xarray_kwargs={{"engine": "netcdf4", "decode_times": True}})',
+            "ds = source.read()",
+        ]
     else:
         lines += [
+            "paths = [",
+        ]
+        for h in hrefs:
+            lines.append(f'    r"{h}",')
+        lines += [
+            "]",
+            "",
+            "# --- xarray ---",
+            'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
+            "",
+            "# --- intake-xarray ---",
             "source = intake.open_netcdf(",
             "    paths,",
-            '    xarray_kwargs={"engine": "netcdf4", "decode_times": True, "combine": "by_coords"},',
+            '    xarray_kwargs={"engine": "netcdf4", "combine": "by_coords", "decode_times": True},',
             ")",
+            "ds = source.read()",
         ]
-    lines.append("ds = source.read()")
 
     return "\n".join(lines)
 
@@ -309,10 +310,13 @@ class CatalogLoader:
         for exp_cat in self.root.get_children():
             if not isinstance(exp_cat, pystac.Catalog):
                 continue
-            self.model_collections[exp_cat.id] = {}
+            # Key by the human-readable title (e.g. "basic-001"), not the
+            # UUID-prefixed id, so experiment filter matches item properties.
+            exp_key = exp_cat.title or exp_cat.id
+            self.model_collections[exp_key] = {}
             for child in exp_cat.get_children():
                 if isinstance(child, pystac.Collection):
-                    self.model_collections[exp_cat.id][child.id] = child
+                    self.model_collections[exp_key][child.id] = child
         n_cols = sum(len(v) for v in self.model_collections.values())
         print(f"Loaded catalog from {self.catalog_dir}: "
               f"{len(self.model_collections)} experiments, {n_cols} collections")
@@ -925,7 +929,12 @@ _CHILDREN_CONFORMANCE = "https://api.stacspec.org/v1.0.0/children"
 
 @app.middleware("http")
 async def _patch_root_links(request: Request, call_next):
-    """Inject queryables and children links into the landing page response."""
+    """Inject one 'child' link per experiment into the landing page response.
+
+    STAC Browser navigates the hierarchy by following rel='child' links on the
+    landing page.  Each experiment gets its own child link pointing to
+    /catalogs/{exp_name}, which in turn lists model collections as children.
+    """
     response = await call_next(request)
     if request.url.path not in ("/", ""):
         return response
@@ -943,25 +952,29 @@ async def _patch_root_links(request: Request, call_next):
 
     base_url = str(request.base_url).rstrip("/")
     links: List[Dict] = data.get("links", [])
-    existing_rels = {lnk.get("rel") for lnk in links}
 
-    extra_links = [
-        {
+    # Remove stale 'child' links and the 'data' link (/collections).
+    # The 'data' rel causes STAC Browser to render all model collections flat
+    # alongside experiment catalogs, breaking the hierarchy view.
+    links = [lnk for lnk in links if lnk.get("rel") not in ("child", "data")]
+
+    # One child link per experiment so the browser can walk the hierarchy.
+    for exp_name in sorted(stac_client.loader.model_collections):
+        links.append({
+            "rel": "child",
+            "href": f"{base_url}/catalogs/{exp_name}",
+            "type": "application/json",
+            "title": exp_name,
+        })
+
+    # Queryables link for the Filter extension.
+    if not any(lnk.get("rel") == _OGC_QUERYABLES_REL for lnk in links):
+        links.append({
             "rel": _OGC_QUERYABLES_REL,
             "href": f"{base_url}/queryables",
             "type": "application/schema+json",
             "title": "Queryables",
-        },
-        {
-            "rel": "children",
-            "href": f"{base_url}/children",
-            "type": "application/json",
-            "title": "Child Catalogs",
-        },
-    ]
-    for lnk in extra_links:
-        if lnk["rel"] not in existing_rels:
-            links.append(lnk)
+        })
 
     data["links"] = links
     new_body = _json.dumps(data).encode()
@@ -978,18 +991,19 @@ async def _patch_root_links(request: Request, call_next):
 # No built-in stac-fastapi support exists; implemented as plain FastAPI routes.
 # Exposes the two-level hierarchy: Root → Experiment catalogs → Collections.
 
-def _experiment_catalog_dict(exp_id: str, base_url: str) -> Dict[str, Any]:
+def _experiment_catalog_dict(exp_name: str, base_url: str) -> Dict[str, Any]:
     """Build a lightweight STAC Catalog dict for an experiment."""
     return {
         "type": "Catalog",
-        "id": exp_id,
+        "id": exp_name,
+        "title": exp_name,
         "stac_version": "1.0.0",
-        "description": f"Experiment {exp_id}",
+        "description": f"Experiment {exp_name}",
         "links": [
-            {"rel": "root",     "href": f"{base_url}/",                      "type": "application/json"},
-            {"rel": "self",     "href": f"{base_url}/catalogs/{exp_id}",      "type": "application/json"},
-            {"rel": "parent",   "href": f"{base_url}/",                       "type": "application/json"},
-            {"rel": "children", "href": f"{base_url}/catalogs/{exp_id}/children", "type": "application/json"},
+            {"rel": "root",     "href": f"{base_url}/",                           "type": "application/json"},
+            {"rel": "self",     "href": f"{base_url}/catalogs/{exp_name}",         "type": "application/json"},
+            {"rel": "parent",   "href": f"{base_url}/",                            "type": "application/json"},
+            {"rel": "children", "href": f"{base_url}/catalogs/{exp_name}/children", "type": "application/json"},
         ],
     }
 
@@ -1013,12 +1027,24 @@ async def root_children(request: Request):
 
 @app.get("/catalogs/{catalog_id}", tags=["Children Extension"])
 async def get_catalog(catalog_id: str, request: Request):
-    """Children Extension – return an experiment sub-catalog."""
+    """Children Extension – return an experiment sub-catalog with child links per model."""
     base_url = str(request.base_url).rstrip("/")
-    if catalog_id not in stac_client.loader.model_collections:
+    models = stac_client.loader.model_collections.get(catalog_id)
+    if models is None:
         from starlette.responses import JSONResponse as _JSONResponse
         return _JSONResponse({"detail": f"Catalog {catalog_id!r} not found"}, status_code=404)
-    return _experiment_catalog_dict(catalog_id, base_url)
+
+    cat = _experiment_catalog_dict(catalog_id, base_url)
+    # Inject one 'child' link per model collection so STAC Browser can drill down.
+    for col_id, col in models.items():
+        model_name = col.extra_fields.get("model", col.title or col_id)
+        cat["links"].append({
+            "rel": "child",
+            "href": f"{base_url}/collections/{col_id}",
+            "type": "application/json",
+            "title": model_name,
+        })
+    return cat
 
 
 @app.get("/catalogs/{catalog_id}/children", tags=["Children Extension"])
@@ -1034,10 +1060,10 @@ async def catalog_children(catalog_id: str, request: Request):
     for col_id, col in models.items():
         col_dict = col.to_dict(include_self_link=False)
         col_dict["links"] = [
-            {"rel": "root",       "href": f"{base_url}/",                              "type": "application/json"},
-            {"rel": "self",       "href": f"{base_url}/collections/{col_id}",           "type": "application/json"},
-            {"rel": "parent",     "href": f"{base_url}/catalogs/{catalog_id}",           "type": "application/json"},
-            {"rel": "items",      "href": f"{base_url}/collections/{col_id}/items",      "type": "application/geo+json"},
+            {"rel": "root",   "href": f"{base_url}/",                              "type": "application/json"},
+            {"rel": "self",   "href": f"{base_url}/collections/{col_id}",           "type": "application/json"},
+            {"rel": "parent", "href": f"{base_url}/catalogs/{catalog_id}",           "type": "application/json"},
+            {"rel": "items",  "href": f"{base_url}/collections/{col_id}/items",      "type": "application/geo+json"},
             {"rel": _OGC_QUERYABLES_REL, "href": f"{base_url}/collections/{col_id}/queryables", "type": "application/schema+json"},
         ]
         children.append(col_dict)
@@ -1045,9 +1071,9 @@ async def catalog_children(catalog_id: str, request: Request):
     return {
         "children": children,
         "links": [
-            {"rel": "root",   "href": f"{base_url}/",                                    "type": "application/json"},
-            {"rel": "self",   "href": f"{base_url}/catalogs/{catalog_id}/children",       "type": "application/json"},
-            {"rel": "parent", "href": f"{base_url}/catalogs/{catalog_id}",                "type": "application/json"},
+            {"rel": "root",   "href": f"{base_url}/",                              "type": "application/json"},
+            {"rel": "self",   "href": f"{base_url}/catalogs/{catalog_id}/children", "type": "application/json"},
+            {"rel": "parent", "href": f"{base_url}/catalogs/{catalog_id}",          "type": "application/json"},
         ],
     }
 
