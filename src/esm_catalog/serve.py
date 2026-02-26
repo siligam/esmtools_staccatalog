@@ -224,6 +224,7 @@ class CatalogClient(AsyncBaseCoreClient):
             "links": [
                 {"rel": "self", "href": f"{base_url}/collections/{collection_id}/items", "type": "application/geo+json"},
                 {"rel": "collection", "href": f"{base_url}/collections/{collection_id}", "type": "application/json"},
+                {"rel": "root", "href": f"{base_url}/", "type": "application/json"},
             ],
             "numberMatched": len(items),
             "numberReturned": len(page),
