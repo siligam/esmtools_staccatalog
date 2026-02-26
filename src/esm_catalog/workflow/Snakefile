@@ -5,7 +5,8 @@ Processes NetCDF files into STAC Item JSON files.
 
 Config (passed via --config):
     experiments_json: Path to experiments.json
-    output_dir: Output catalog directory
+    output_dir: Output catalog directory (for unified mode)
+    distributed: If "true", create catalog/ inside each experiment directory
 """
 
 import json
@@ -21,7 +22,34 @@ import xarray as xr
 with open(config["experiments_json"]) as f:
     EXPERIMENTS = json.load(f)
 
-OUTPUT_DIR = Path(config["output_dir"])
+OUTPUT_DIR = Path(config.get("output_dir", "catalog"))
+DISTRIBUTED = config.get("distributed", "false").lower() == "true"
+
+STAC_UUID_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+
+
+def make_short_id(name):
+    uid = uuid.uuid5(STAC_UUID_NAMESPACE, name)
+    return f"{uid.hex[:8]}-{name}"
+
+
+def get_exp_base_path(exp_name):
+    """Get the experiment's base directory from its file paths."""
+    exp_data = EXPERIMENTS.get(exp_name, {})
+    for model_files in exp_data.get("files", {}).values():
+        if model_files:
+            # Assume: {exp_path}/outdata/{model}/*.nc -> exp_path is 3 up
+            return Path(model_files[0]).parent.parent.parent
+    return None
+
+
+def get_item_output_path(exp_name, model_name, item_id):
+    """Get output path for an item, respecting distributed mode."""
+    if DISTRIBUTED:
+        exp_base = get_exp_base_path(exp_name)
+        if exp_base:
+            return exp_base / "catalog" / model_name / f"{item_id}.json"
+    return OUTPUT_DIR / exp_name / model_name / f"{item_id}.json"
 
 
 def get_all_outputs():
@@ -31,9 +59,8 @@ def get_all_outputs():
         for model_name, files in exp_data.get("files", {}).items():
             for nc_file in files:
                 stem = Path(nc_file).stem
-                uid = uuid.uuid5(uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8"), stem)
-                item_id = f"{uid.hex[:8]}-{stem}"
-                outputs.append(OUTPUT_DIR / exp_name / model_name / f"{item_id}.json")
+                item_id = make_short_id(stem)
+                outputs.append(get_item_output_path(exp_name, model_name, item_id))
     return outputs
 
 
@@ -42,40 +69,58 @@ rule all:
         get_all_outputs()
 
 
+def get_nc_file_for_item(wildcards):
+    """Find the NC file that matches this item based on wildcards."""
+    for exp_name, exp_data in EXPERIMENTS.items():
+        for model_name, files in exp_data.get("files", {}).items():
+            for nc_file in files:
+                stem = Path(nc_file).stem
+                item_id = make_short_id(stem)
+                expected_path = get_item_output_path(exp_name, model_name, item_id)
+                if str(expected_path) == wildcards.output_path:
+                    return nc_file
+    raise ValueError(f"No NC file found for {wildcards.output_path}")
+
+
 rule stac_item:
     output:
-        item=OUTPUT_DIR / "{exp}" / "{model}" / "{item_id}.json"
+        item="{output_path}"
     conda:
         "envs/stac.yaml"
     run:
-        import json
-        import uuid
-        import re
-        from datetime import datetime, timezone
-        from pathlib import Path
-        import pystac
-        import xarray as xr
-
-        exp_data = EXPERIMENTS[wildcards.exp]
-        exp_meta = exp_data.get("experiment_meta", {})
-        model_meta = exp_data.get("model_meta", {}).get(wildcards.model, {})
-
-        # Find the NC file that matches this item_id
+        # Find which experiment/model/file this output corresponds to
         nc_file = None
-        for f in exp_data.get("files", {}).get(wildcards.model, []):
-            stem = Path(f).stem
-            uid = uuid.uuid5(uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8"), stem)
-            if wildcards.item_id == f"{uid.hex[:8]}-{stem}":
-                nc_file = f
+        exp_name = None
+        model_name = None
+
+        for en, exp_data in EXPERIMENTS.items():
+            for mn, files in exp_data.get("files", {}).items():
+                for f in files:
+                    stem = Path(f).stem
+                    item_id = make_short_id(stem)
+                    expected = get_item_output_path(en, mn, item_id)
+                    if str(expected) == output.item:
+                        nc_file = f
+                        exp_name = en
+                        model_name = mn
+                        break
+                if nc_file:
+                    break
+            if nc_file:
                 break
 
         if nc_file is None:
-            raise ValueError(f"No NC file found for {wildcards.item_id}")
+            raise ValueError(f"No NC file found for {output.item}")
 
         p = Path(nc_file)
+        exp_data = EXPERIMENTS[exp_name]
+        exp_meta = exp_data.get("experiment_meta", {})
 
         # Variable name from filename
         variable = p.stem.split(".")[0]
+
+        # Deterministic ID
+        item_id = make_short_id(p.stem)
 
         # Datetime from filename (YYYYMM pattern)
         m = re.search(r'\.(\d{6})\.\d{2}\.nc$', p.name)
@@ -103,13 +148,13 @@ rule stac_item:
 
         # Build STAC Item
         item = pystac.Item(
-            id=wildcards.item_id,
+            id=item_id,
             geometry={"type": "Polygon", "coordinates": [[[-180,-90],[180,-90],[180,90],[-180,90],[-180,-90]]]},
             bbox=[-180.0, -90.0, 180.0, 90.0],
             datetime=dt,
             properties={
-                "model": wildcards.model,
-                "experiment": wildcards.exp,
+                "model": model_name,
+                "experiment": exp_name,
                 "variable": variable,
             },
             stac_extensions=[

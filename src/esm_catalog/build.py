@@ -379,12 +379,192 @@ def save_catalog(
             write_json(col_dir / "collection.json", col_dict)
 
 
-def build_catalog(experiments_json_path: str | Path, output_dir: str | Path) -> pystac.Catalog:
+def save_catalog_distributed(
+    root_catalog: pystac.Catalog,
+    collections_map: dict[str, list[pystac.Item]],
+    exp_paths: dict[str, Path],
+    root_catalog_path: Path,
+) -> None:
+    """Save catalog with each experiment's catalog inside its own directory.
+
+    Structure:
+        {experiments_dir}/catalog.json                    # root catalog
+        {exp_path}/catalog/catalog.json                   # experiment catalog
+        {exp_path}/catalog/{model}/collection.json
+        {exp_path}/catalog/{model}/{item_id}.json
+
+    Args:
+        root_catalog: The root pystac.Catalog
+        collections_map: Mapping of collection IDs to their items
+        exp_paths: Mapping of experiment names to their base paths
+        root_catalog_path: Where to write the root catalog.json
+    """
+    # Build child links for root catalog (relative paths to each experiment's catalog)
+    root_links = [
+        {"rel": "root", "href": "./catalog.json", "type": "application/json"},
+        {"rel": "self", "href": "./catalog.json", "type": "application/json"},
+    ]
+
+    for exp_cat in root_catalog.get_children():
+        exp_name = exp_cat.title or exp_cat.id
+        exp_base = exp_paths.get(exp_name)
+        if not exp_base:
+            continue
+
+        # Relative path from root catalog to experiment catalog
+        try:
+            rel_path = (exp_base / "catalog" / "catalog.json").relative_to(root_catalog_path.parent)
+        except ValueError:
+            # If not relative, use absolute
+            rel_path = exp_base / "catalog" / "catalog.json"
+
+        root_links.append({
+            "rel": "child",
+            "href": f"./{rel_path}",
+            "type": "application/json",
+            "title": exp_name,
+        })
+
+    root_dict = {
+        "type": "Catalog",
+        "id": root_catalog.id,
+        "title": root_catalog.title or root_catalog.id,
+        "stac_version": "1.0.0",
+        "description": root_catalog.description,
+        "links": root_links,
+    }
+    write_json(root_catalog_path, root_dict)
+
+    # Write each experiment's catalog inside its directory
+    for exp_cat in root_catalog.get_children():
+        exp_name = exp_cat.title or exp_cat.id
+        exp_base = exp_paths.get(exp_name)
+        if not exp_base:
+            continue
+
+        catalog_dir = exp_base / "catalog"
+        child_collections = list(exp_cat.get_children())
+
+        # Calculate relative path back to root
+        try:
+            rel_to_root = Path("..") / root_catalog_path.relative_to(exp_base)
+        except ValueError:
+            rel_to_root = root_catalog_path
+
+        # Experiment catalog
+        exp_dict = {
+            "type": "Catalog",
+            "id": exp_cat.id,
+            "title": exp_cat.title or exp_cat.id,
+            "stac_version": "1.0.0",
+            "description": exp_cat.description,
+            "links": [
+                {"rel": "root", "href": str(rel_to_root), "type": "application/json"},
+                {"rel": "self", "href": "./catalog.json", "type": "application/json"},
+                {"rel": "parent", "href": str(rel_to_root), "type": "application/json"},
+            ] + [
+                {
+                    "rel": "child",
+                    "href": f"./{col.extra_fields.get('model', col.id)}/collection.json",
+                    "type": "application/json",
+                    "title": col.title or col.id,
+                }
+                for col in child_collections
+            ],
+        }
+        write_json(catalog_dir / "catalog.json", exp_dict)
+
+        for col in child_collections:
+            model_slug = col.extra_fields.get("model", col.id)
+            col_dir = catalog_dir / model_slug
+            items = collections_map[col.id]
+
+            # Items
+            item_links = []
+            for item in items:
+                item_filename = f"{item.id}.json"
+                item_dict = item.to_dict()
+                item_dict["links"] = [
+                    {"rel": "root", "href": str(rel_to_root), "type": "application/json"},
+                    {"rel": "self", "href": f"./{item_filename}", "type": "application/geo+json"},
+                    {"rel": "parent", "href": "./collection.json", "type": "application/json"},
+                    {"rel": "collection", "href": "./collection.json", "type": "application/json"},
+                ]
+
+                item_exts = item_dict.get("stac_extensions", [])
+                if DATACUBE_EXTENSION not in item_exts:
+                    item_dict["stac_extensions"] = item_exts + [DATACUBE_EXTENSION]
+
+                write_json(col_dir / item_filename, item_dict)
+                item_links.append({
+                    "rel": "item",
+                    "href": f"./{item_filename}",
+                    "type": "application/geo+json",
+                })
+
+            # Collection
+            col_dict = col.to_dict()
+            if "title" not in col_dict:
+                col_dict["title"] = col.title or model_slug
+
+            col_exts = col_dict.get("stac_extensions", [])
+            if DATACUBE_EXTENSION not in col_exts:
+                col_dict["stac_extensions"] = col_exts + [DATACUBE_EXTENSION]
+
+            temporal_interval = (
+                col_dict.get("extent", {})
+                .get("temporal", {})
+                .get("interval", [[None, None]])[0]
+            )
+            col_dict["cube:dimensions"] = {
+                "time": {
+                    "type": "temporal",
+                    "extent": [temporal_interval[0], temporal_interval[1]],
+                },
+                "longitude": {
+                    "type": "spatial",
+                    "axis": "x",
+                    "extent": [-180.0, 180.0],
+                    "reference_system": "EPSG:4326",
+                },
+                "latitude": {
+                    "type": "spatial",
+                    "axis": "y",
+                    "extent": [-90.0, 90.0],
+                    "reference_system": "EPSG:4326",
+                },
+            }
+
+            col_variable_names = sorted({
+                item.properties.get("variable", "")
+                for item in items
+                if item.properties.get("variable")
+            })
+            col_dict["cube:variables"] = {
+                var: {"type": "data", "dimensions": ["time", "latitude", "longitude"]}
+                for var in col_variable_names
+            }
+
+            col_dict["links"] = [
+                {"rel": "root", "href": str(rel_to_root), "type": "application/json"},
+                {"rel": "self", "href": "./collection.json", "type": "application/json"},
+                {"rel": "parent", "href": "../catalog.json", "type": "application/json"},
+            ] + item_links
+
+            write_json(col_dir / "collection.json", col_dict)
+
+
+def build_catalog(
+    experiments_json_path: str | Path,
+    output_dir: str | Path,
+    distributed: bool = False,
+) -> pystac.Catalog:
     """Build complete STAC catalog from experiments.json.
 
     Args:
         experiments_json_path: Path to experiments.json
-        output_dir: Output directory for catalog
+        output_dir: Output directory for catalog (or parent dir in distributed mode)
+        distributed: If True, create catalog/ inside each experiment directory
 
     Returns:
         Root pystac.Catalog
@@ -467,5 +647,22 @@ def build_catalog(experiments_json_path: str | Path, output_dir: str | Path) -> 
 
         logger.info(f"Built experiment: {exp_name}")
 
-    save_catalog(root_catalog, collections_map, output_dir)
+    if distributed:
+        # Infer experiment paths from file locations
+        exp_paths: dict[str, Path] = {}
+        for exp_name, exp_data in experiments.items():
+            files = exp_data.get("files", {})
+            for model_files in files.values():
+                if model_files:
+                    # Assume structure: {exp_path}/outdata/{model}/*.nc
+                    # So exp_path is 3 levels up from the NC file
+                    nc_path = Path(model_files[0])
+                    exp_paths[exp_name] = nc_path.parent.parent.parent
+                    break
+
+        root_catalog_path = Path(output_dir) / "catalog.json"
+        save_catalog_distributed(root_catalog, collections_map, exp_paths, root_catalog_path)
+    else:
+        save_catalog(root_catalog, collections_map, output_dir)
+
     return root_catalog
