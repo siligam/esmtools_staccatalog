@@ -1,0 +1,30 @@
+{
+  "type": "Catalog",
+  "id": "4a3467c9-branchoff-002",
+  "title": "branchoff-002",
+  "stac_version": "1.0.0",
+  "description": "Experiment branchoff-002 | Setup: awiesm | Scenario: PI-CTRL | Resolution: T63_CORE2",
+  "links": [
+    {
+      "rel": "root",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "self",
+      "href": "./catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "child",
+      "href": "./fesom/collection.json",
+      "type": "application/json",
+      "title": "fesom"
+    }
+  ]
+}

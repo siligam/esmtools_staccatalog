@@ -1,0 +1,85 @@
+"""
+Snakemake example: build one STAC item JSON per NetCDF file.
+
+Two usage patterns are shown:
+  - Rule `stac_item`   : one rule per file (files arrive one at a time)
+  - Rule `stac_items`  : batch rule (all files for a model available at once)
+
+Run from this directory:
+    snakemake --cores 1 --configfile config.yaml
+"""
+
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(workflow.basedir).parent))
+from build_catalog import build_item, build_items
+
+
+configfile: "config.yaml"
+
+
+# ---------------------------------------------------------------------------
+# Helper: load experiments.json and extract metadata for a given experiment
+# ---------------------------------------------------------------------------
+def load_exp_meta(experiments_json, exp_name):
+    with open(experiments_json) as f:
+        experiments = json.load(f)
+    exp_data = experiments[exp_name]
+    return exp_data.get("experiment_meta", {}), exp_data.get("model_meta", {})
+
+
+# ---------------------------------------------------------------------------
+# Pattern 1 – one file at a time
+#
+# Each NetCDF file produces exactly one item JSON.
+# Snakemake can schedule these rules independently (e.g. on a cluster).
+# ---------------------------------------------------------------------------
+rule stac_item:
+    input:
+        nc="{output_dir}/{exp}/{model}/{stem}.nc",
+    output:
+        item="{output_dir}/{exp}/{model}/{stem}.json",
+    params:
+        experiments_json=config["experiments_json"],
+        exp_name=lambda wc: wc.exp,
+        model_name=lambda wc: wc.model,
+    run:
+        exp_meta, model_meta = load_exp_meta(
+            params.experiments_json, params.exp_name
+        )
+        meta = model_meta.get(params.model_name, {})
+        item = build_item(input.nc, exp_meta, params.model_name, meta)
+        with open(output.item, "w") as f:
+            json.dump(item.to_dict(), f, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Pattern 2 – all files for a model component at once
+#
+# All NetCDF files for one (experiment, model) pair are processed together.
+# Useful when the full file list is known upfront.
+# ---------------------------------------------------------------------------
+rule stac_items:
+    input:
+        ncs=lambda wc: config["experiments"][wc.exp]["files"][wc.model],
+    output:
+        items=lambda wc: [
+            Path(config["output_dir"]) / wc.exp / wc.model / (Path(f).stem + ".json")
+            for f in config["experiments"][wc.exp]["files"][wc.model]
+        ],
+    params:
+        experiments_json=config["experiments_json"],
+        exp_name=lambda wc: wc.exp,
+        model_name=lambda wc: wc.model,
+    run:
+        exp_meta, model_meta = load_exp_meta(
+            params.experiments_json, params.exp_name
+        )
+        meta = model_meta.get(params.model_name, {})
+        items = build_items(input.ncs, exp_meta, params.model_name, meta)
+        for item, out_path in zip(items, output.items):
+            Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+            with open(out_path, "w") as f:
+                json.dump(item.to_dict(), f, indent=2)

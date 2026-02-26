@@ -1,0 +1,271 @@
+{
+  "type": "Collection",
+  "id": "d9f53763-sylvester-001-fesom",
+  "stac_version": "1.0.0",
+  "description": "fesom output for experiment sylvester-001",
+  "links": [
+    {
+      "rel": "root",
+      "href": "../../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "self",
+      "href": "./collection.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "item",
+      "href": "./d67f3ed2-MLD1.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./927bb85b-MLD2.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./670c5c76-a_ice.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./70ac3dc8-m_ice.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./5dcd92a1-m_snow.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./f8aaf16c-momix_length.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./291ba97a-ssh.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./3e5bd6b0-sss.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./13a7d9d3-sst.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./2aa9510b-tx_sur.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./8f287597-ty_sur.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./dbea800d-uice.fesom.185001.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./392b6f02-vice.fesom.185001.01.json",
+      "type": "application/geo+json"
+    }
+  ],
+  "model": "fesom",
+  "model_type": "ocean",
+  "version": "2.1-awiesm-2.1",
+  "resolution": "CORE2",
+  "scenario": null,
+  "institute": null,
+  "authors": null,
+  "license": "proprietary",
+  "publications": null,
+  "keywords": [
+    "sylvester-001",
+    "fesom",
+    "MLD1",
+    "MLD2",
+    "a_ice",
+    "m_ice",
+    "m_snow",
+    "momix_length",
+    "ssh",
+    "sss",
+    "sst",
+    "tx_sur",
+    "ty_sur",
+    "uice",
+    "vice"
+  ],
+  "title": "fesom",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -90.0,
+          180.0,
+          90.0
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "1850-01-01T00:00:00Z",
+          "1850-04-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "stac_extensions": [
+    "https://stac-extensions.github.io/datacube/v2.2.0/schema.json"
+  ],
+  "cube:dimensions": {
+    "time": {
+      "type": "temporal",
+      "extent": [
+        "1850-01-01T00:00:00Z",
+        "1850-04-01T00:00:00Z"
+      ]
+    },
+    "longitude": {
+      "type": "spatial",
+      "axis": "x",
+      "extent": [
+        -180.0,
+        180.0
+      ],
+      "reference_system": "EPSG:4326"
+    },
+    "latitude": {
+      "type": "spatial",
+      "axis": "y",
+      "extent": [
+        -90.0,
+        90.0
+      ],
+      "reference_system": "EPSG:4326"
+    }
+  },
+  "cube:variables": {
+    "MLD1": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "MLD2": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "a_ice": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "m_ice": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "m_snow": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "momix_length": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "ssh": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "sss": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "sst": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "tx_sur": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "ty_sur": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "uice": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "vice": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    }
+  }
+}

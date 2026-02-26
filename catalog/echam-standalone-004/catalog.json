@@ -1,0 +1,24 @@
+{
+  "type": "Catalog",
+  "id": "9c11be0b-echam-standalone-004",
+  "title": "echam-standalone-004",
+  "stac_version": "1.0.0",
+  "description": "Experiment echam-standalone-004 | Setup: echam | Scenario: None | Resolution: None",
+  "links": [
+    {
+      "rel": "root",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "self",
+      "href": "./catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json"
+    }
+  ]
+}

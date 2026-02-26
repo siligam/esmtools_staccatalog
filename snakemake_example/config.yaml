@@ -1,0 +1,17 @@
+# Path to the experiments.json produced by experiments.py
+experiments_json: "../experiments.json"
+
+# Root directory where item JSON files will be written
+output_dir: "../stac_catalog"
+
+# Subset of experiments.json used by the batch rule (stac_items).
+# Copy the relevant entries from experiments.json here, or load them
+# dynamically in the Snakefile if the full file is preferred.
+#
+# Example (mirrors the garfield-001 entry in experiments.json):
+experiments:
+  garfield-001:
+    files:
+      fesom:
+        - /albedo/work/user/pgierz/SciComp/Tutorials/AWIESM_Basics/experiments/garfield-001/outdata/fesom/ssh.fesom.185001.01.nc
+        - /albedo/work/user/pgierz/SciComp/Tutorials/AWIESM_Basics/experiments/garfield-001/outdata/fesom/sst.fesom.185001.01.nc

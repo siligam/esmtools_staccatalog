@@ -1,0 +1,137 @@
+{
+  "type": "Feature",
+  "stac_version": "1.0.0",
+  "id": "8f9d5215-snt_feom_fesom_02",
+  "properties": {
+    "model": "oasis3mct",
+    "model_type": null,
+    "grid": "unstructured-mesh",
+    "conventions": "CF-UGRID",
+    "institution": "Alfred Wegener Institute",
+    "source_type": "OGCM",
+    "frequency": "monthly",
+    "variable": "snt_feom_fesom_02",
+    "experiment": "sylvester-008",
+    "scenario": "PI-CTRL",
+    "resolution": "T63_CORE2",
+    "setup": "awiesm",
+    "title": "snt_feom_fesom_02_oasis3mct_",
+    "datetime": "1850-01-01T00:00:00Z",
+    "cube:dimensions": {
+      "time": {
+        "type": "temporal",
+        "extent": [
+          "1850-01-01T00:00:00Z",
+          "1850-01-01T00:00:00Z"
+        ]
+      },
+      "longitude": {
+        "type": "spatial",
+        "axis": "x",
+        "extent": [
+          -180.0,
+          180.0
+        ],
+        "reference_system": "EPSG:4326"
+      },
+      "latitude": {
+        "type": "spatial",
+        "axis": "y",
+        "extent": [
+          -90.0,
+          90.0
+        ],
+        "reference_system": "EPSG:4326"
+      }
+    },
+    "cube:variables": {
+      "snt_feom_fesom_02": {
+        "type": "data",
+        "dimensions": [
+          "time",
+          "latitude",
+          "longitude"
+        ]
+      }
+    }
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -180.0,
+          -90.0
+        ],
+        [
+          180.0,
+          -90.0
+        ],
+        [
+          180.0,
+          90.0
+        ],
+        [
+          -180.0,
+          90.0
+        ],
+        [
+          -180.0,
+          -90.0
+        ]
+      ]
+    ]
+  },
+  "links": [
+    {
+      "rel": "root",
+      "href": "../../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "self",
+      "href": "./8f9d5215-snt_feom_fesom_02.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "parent",
+      "href": "./collection.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "collection",
+      "href": "./collection.json",
+      "type": "application/json"
+    }
+  ],
+  "assets": {
+    "data": {
+      "href": "/albedo/work/user/pgierz/SciComp/Tutorials/AWIESM_Basics/experiments/sylvester-008/outdata/oasis3mct/snt_feom_fesom_02.nc",
+      "type": "application/x-netcdf",
+      "title": "snt_feom_fesom_02.nc",
+      "xarray:open_kwargs": {
+        "engine": "netcdf4",
+        "decode_times": true
+      },
+      "xarray:storage_options": {},
+      "netcdf:format": "netcdf4",
+      "netcdf:convention": "CF-UGRID",
+      "file:size": 755061944,
+      "roles": [
+        "data"
+      ]
+    }
+  },
+  "bbox": [
+    -180.0,
+    -90.0,
+    180.0,
+    90.0
+  ],
+  "stac_extensions": [
+    "https://stac-extensions.github.io/scientific/v1.0.0/schema.json",
+    "https://stac-extensions.github.io/cf/v0.2.0/schema.json",
+    "https://stac-extensions.github.io/file/v1.0.0/schema.json",
+    "https://stac-extensions.github.io/datacube/v2.2.0/schema.json"
+  ]
+}

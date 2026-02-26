@@ -1,0 +1,36 @@
+{
+  "type": "Catalog",
+  "id": "412d4e5b-sylvester-010",
+  "title": "sylvester-010",
+  "stac_version": "1.0.0",
+  "description": "Experiment sylvester-010 | Setup: awiesm | Scenario: PI-CTRL | Resolution: T63_CORE2",
+  "links": [
+    {
+      "rel": "root",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "self",
+      "href": "./catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "child",
+      "href": "./fesom/collection.json",
+      "type": "application/json",
+      "title": "fesom"
+    },
+    {
+      "rel": "child",
+      "href": "./oasis3mct/collection.json",
+      "type": "application/json",
+      "title": "oasis3mct"
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "type": "Catalog",
+  "id": "1b39773c-fesom-stac-catalog",
+  "title": "ESM Tools Experiments",
+  "stac_version": "1.0.0",
+  "description": "STAC catalog of AWIESM experiment output",
+  "links": [
+    {
+      "rel": "root",
+      "href": "./catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "self",
+      "href": "./catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "child",
+      "href": "./garfield-001/catalog.json",
+      "type": "application/json",
+      "title": "garfield-001"
+    },
+    {
+      "rel": "child",
+      "href": "./branchoff-002/catalog.json",
+      "type": "application/json",
+      "title": "branchoff-002"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-006/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-006"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-004/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-004"
+    },
+    {
+      "rel": "child",
+      "href": "./garfield-002/catalog.json",
+      "type": "application/json",
+      "title": "garfield-002"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-003/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-003"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-001/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-001"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-005/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-005"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-007/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-007"
+    },
+    {
+      "rel": "child",
+      "href": "./echam-standalone-004/catalog.json",
+      "type": "application/json",
+      "title": "echam-standalone-004"
+    },
+    {
+      "rel": "child",
+      "href": "./echam-standalone-006/catalog.json",
+      "type": "application/json",
+      "title": "echam-standalone-006"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-008/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-008"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-002/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-002"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-010/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-010"
+    },
+    {
+      "rel": "child",
+      "href": "./basic-001/catalog.json",
+      "type": "application/json",
+      "title": "basic-001"
+    },
+    {
+      "rel": "child",
+      "href": "./sylvester-011/catalog.json",
+      "type": "application/json",
+      "title": "sylvester-011"
+    },
+    {
+      "rel": "child",
+      "href": "./basic-002/catalog.json",
+      "type": "application/json",
+      "title": "basic-002"
+    }
+  ]
+}

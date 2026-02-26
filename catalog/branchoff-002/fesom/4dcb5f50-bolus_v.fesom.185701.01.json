@@ -1,0 +1,170 @@
+{
+  "type": "Feature",
+  "stac_version": "1.0.0",
+  "id": "4dcb5f50-bolus_v.fesom.185701.01",
+  "properties": {
+    "model": "fesom",
+    "model_type": "ocean",
+    "grid": "unstructured-mesh",
+    "conventions": "CF-UGRID",
+    "institution": "Alfred Wegener Institute",
+    "source_type": "OGCM",
+    "frequency": "monthly",
+    "variable": "bolus_v",
+    "experiment": "branchoff-002",
+    "scenario": "PI-CTRL",
+    "resolution": "T63_CORE2",
+    "setup": "awiesm",
+    "FESOM_model": "FESOM2",
+    "FESOM_website": "fesom.de",
+    "FESOM_git_SHA": "b2588623",
+    "FESOM_MeshPath": "/albedo/pool/FESOM2/core2/",
+    "FESOM_mesh_representative_checksum": "96ef52281f7e327b221950bcd07cc1d8",
+    "FESOM_ClimateDataPath": "/albedo/pool/FESOM/hydrography/",
+    "FESOM_which_ALE": "zstar",
+    "FESOM_mix_scheme": "KPP",
+    "FESOM_tra_adv_hor": "MFCT",
+    "FESOM_tra_adv_ver": "QR4C",
+    "FESOM_tra_adv_lim": "FCT",
+    "FESOM_use_partial_cell": -1,
+    "FESOM_force_rotation": -1,
+    "FESOM_include_fleapyear": -1,
+    "FESOM_use_floatice": 0,
+    "FESOM_whichEVP": 0,
+    "FESOM_evp_rheol_steps": 120,
+    "FESOM_visc_option": 5,
+    "FESOM_w_split": 0,
+    "cf:parameter": [
+      {
+        "name": "GM bolus velocity V",
+        "variable": "bolus_v",
+        "unit": "m/s"
+      }
+    ],
+    "title": "bolus_v_fesom_185701",
+    "datetime": "1857-01-01T00:00:00Z",
+    "cube:dimensions": {
+      "time": {
+        "type": "temporal",
+        "extent": [
+          "1857-01-01T00:00:00Z",
+          "1857-01-01T00:00:00Z"
+        ]
+      },
+      "longitude": {
+        "type": "spatial",
+        "axis": "x",
+        "extent": [
+          -180.0,
+          180.0
+        ],
+        "reference_system": "EPSG:4326"
+      },
+      "latitude": {
+        "type": "spatial",
+        "axis": "y",
+        "extent": [
+          -90.0,
+          90.0
+        ],
+        "reference_system": "EPSG:4326"
+      }
+    },
+    "cube:variables": {
+      "bolus_v": {
+        "type": "data",
+        "dimensions": [
+          "time",
+          "latitude",
+          "longitude"
+        ]
+      }
+    }
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -180.0,
+          -90.0
+        ],
+        [
+          180.0,
+          -90.0
+        ],
+        [
+          180.0,
+          90.0
+        ],
+        [
+          -180.0,
+          90.0
+        ],
+        [
+          -180.0,
+          -90.0
+        ]
+      ]
+    ]
+  },
+  "links": [
+    {
+      "rel": "root",
+      "href": "../../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "self",
+      "href": "./4dcb5f50-bolus_v.fesom.185701.01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "parent",
+      "href": "./collection.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "collection",
+      "href": "./collection.json",
+      "type": "application/json"
+    }
+  ],
+  "assets": {
+    "data": {
+      "href": "/albedo/work/user/pgierz/SciComp/Tutorials/AWIESM_Basics/experiments/branchoff-002/outdata/fesom/bolus_v.fesom.185701.01.nc",
+      "type": "application/x-netcdf",
+      "title": "bolus_v.fesom.185701.01.nc",
+      "xarray:open_kwargs": {
+        "engine": "netcdf4",
+        "decode_times": true
+      },
+      "xarray:storage_options": {},
+      "netcdf:format": "netcdf4",
+      "netcdf:convention": "CF-UGRID",
+      "file:size": 46999404,
+      "cf:parameter": [
+        {
+          "name": "GM bolus velocity V",
+          "variable": "bolus_v",
+          "unit": "m/s"
+        }
+      ],
+      "roles": [
+        "data"
+      ]
+    }
+  },
+  "bbox": [
+    -180.0,
+    -90.0,
+    180.0,
+    90.0
+  ],
+  "stac_extensions": [
+    "https://stac-extensions.github.io/scientific/v1.0.0/schema.json",
+    "https://stac-extensions.github.io/cf/v0.2.0/schema.json",
+    "https://stac-extensions.github.io/file/v1.0.0/schema.json",
+    "https://stac-extensions.github.io/datacube/v2.2.0/schema.json"
+  ]
+}

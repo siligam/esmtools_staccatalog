@@ -1,0 +1,537 @@
+{
+  "type": "Collection",
+  "id": "baa0a18a-sylvester-003-oasis3mct",
+  "stac_version": "1.0.0",
+  "description": "oasis3mct output for experiment sylvester-003",
+  "links": [
+    {
+      "rel": "root",
+      "href": "../../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "self",
+      "href": "./collection.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "item",
+      "href": "./3ef60d88-evap_atm_echam6_06.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./9593bacd-evap_oce_fesom_06.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./66738109-heat_atm_echam6_08.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./80cfb0c6-heat_ica_echam6_09.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./01144aa8-heat_ico_fesom_09.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./39284479-heat_oce_fesom_08.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./e767fbd4-heat_swa_echam6_10.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./2bf5c8bc-heat_swo_fesom_10.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./83ab01c9-hydr_atm_echam6_11.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./4e153c1a-hydr_oce_fesom_11.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./076d44a5-prec_atm_echam6_04.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./4f0a506f-prec_oce_fesom_04.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./db59f91b-sie_atmo_echam6_01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./99eb9ae3-sie_feom_fesom_01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./71ba05f4-sit_atmo_echam6_01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./d7d8a3f7-sit_feom_fesom_01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./bebb8c11-snow_atm_echam6_05.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./17a80248-snow_oce_fesom_05.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./a683eb28-snt_atmo_echam6_02.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./8f9d5215-snt_feom_fesom_02.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./3738dbfa-sst_atmo_echam6_01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./b596027a-sst_feom_fesom_01.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./45fa535a-subl_atm_echam6_07.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./73b0ce9a-subl_oce_fesom_07.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./e8043baa-taux_atm_echam6_03.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./1874aa19-taux_ica_echam6_03.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./2fdb4603-taux_ico_fesom_03.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./23a557f5-taux_oce_fesom_03.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./66c10043-tauy_atm_echam6_03.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./647d9520-tauy_ica_echam6_03.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./b6fbf251-tauy_ico_fesom_03.json",
+      "type": "application/geo+json"
+    },
+    {
+      "rel": "item",
+      "href": "./6163840e-tauy_oce_fesom_03.json",
+      "type": "application/geo+json"
+    }
+  ],
+  "model": "oasis3mct",
+  "model_type": null,
+  "version": "2.8",
+  "resolution": null,
+  "scenario": null,
+  "institute": null,
+  "authors": null,
+  "license": "proprietary",
+  "publications": null,
+  "keywords": [
+    "sylvester-003",
+    "oasis3mct",
+    "evap_atm_echam6_06",
+    "evap_oce_fesom_06",
+    "heat_atm_echam6_08",
+    "heat_ica_echam6_09",
+    "heat_ico_fesom_09",
+    "heat_oce_fesom_08",
+    "heat_swa_echam6_10",
+    "heat_swo_fesom_10",
+    "hydr_atm_echam6_11",
+    "hydr_oce_fesom_11",
+    "prec_atm_echam6_04",
+    "prec_oce_fesom_04",
+    "sie_atmo_echam6_01",
+    "sie_feom_fesom_01",
+    "sit_atmo_echam6_01",
+    "sit_feom_fesom_01",
+    "snow_atm_echam6_05",
+    "snow_oce_fesom_05",
+    "snt_atmo_echam6_02",
+    "snt_feom_fesom_02",
+    "sst_atmo_echam6_01",
+    "sst_feom_fesom_01",
+    "subl_atm_echam6_07",
+    "subl_oce_fesom_07",
+    "taux_atm_echam6_03",
+    "taux_ica_echam6_03",
+    "taux_ico_fesom_03",
+    "taux_oce_fesom_03",
+    "tauy_atm_echam6_03",
+    "tauy_ica_echam6_03",
+    "tauy_ico_fesom_03",
+    "tauy_oce_fesom_03"
+  ],
+  "title": "oasis3mct",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -90.0,
+          180.0,
+          90.0
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "1850-01-01T00:00:00Z",
+          "1850-04-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "stac_extensions": [
+    "https://stac-extensions.github.io/datacube/v2.2.0/schema.json"
+  ],
+  "cube:dimensions": {
+    "time": {
+      "type": "temporal",
+      "extent": [
+        "1850-01-01T00:00:00Z",
+        "1850-04-01T00:00:00Z"
+      ]
+    },
+    "longitude": {
+      "type": "spatial",
+      "axis": "x",
+      "extent": [
+        -180.0,
+        180.0
+      ],
+      "reference_system": "EPSG:4326"
+    },
+    "latitude": {
+      "type": "spatial",
+      "axis": "y",
+      "extent": [
+        -90.0,
+        90.0
+      ],
+      "reference_system": "EPSG:4326"
+    }
+  },
+  "cube:variables": {
+    "evap_atm_echam6_06": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "evap_oce_fesom_06": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "heat_atm_echam6_08": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "heat_ica_echam6_09": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "heat_ico_fesom_09": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "heat_oce_fesom_08": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "heat_swa_echam6_10": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "heat_swo_fesom_10": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "hydr_atm_echam6_11": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "hydr_oce_fesom_11": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "prec_atm_echam6_04": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "prec_oce_fesom_04": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "sie_atmo_echam6_01": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "sie_feom_fesom_01": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "sit_atmo_echam6_01": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "sit_feom_fesom_01": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "snow_atm_echam6_05": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "snow_oce_fesom_05": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "snt_atmo_echam6_02": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "snt_feom_fesom_02": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "sst_atmo_echam6_01": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "sst_feom_fesom_01": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "subl_atm_echam6_07": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "subl_oce_fesom_07": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "taux_atm_echam6_03": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "taux_ica_echam6_03": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "taux_ico_fesom_03": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "taux_oce_fesom_03": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "tauy_atm_echam6_03": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "tauy_ica_echam6_03": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "tauy_ico_fesom_03": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    },
+    "tauy_oce_fesom_03": {
+      "type": "data",
+      "dimensions": [
+        "time",
+        "latitude",
+        "longitude"
+      ]
+    }
+  }
+}
