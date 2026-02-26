@@ -153,6 +153,7 @@ def _finalize_distributed(experiments: dict, root_catalog_dir: Path) -> None:
                 "id": make_short_id(f"{exp_name}-{model_name}"),
                 "title": model_name,
                 "stac_version": "1.0.0",
+                "license": "proprietary",
                 "description": f"{model_name} output for experiment {exp_name}",
                 "stac_extensions": [DATACUBE_EXTENSION],
                 "extent": {
@@ -293,6 +294,7 @@ def _finalize_unified(experiments: dict, output_dir: Path) -> None:
                 "id": make_short_id(f"{exp_name}-{model_name}"),
                 "title": model_name,
                 "stac_version": "1.0.0",
+                "license": "proprietary",
                 "description": f"{model_name} output for experiment {exp_name}",
                 "stac_extensions": [DATACUBE_EXTENSION],
                 "extent": {
