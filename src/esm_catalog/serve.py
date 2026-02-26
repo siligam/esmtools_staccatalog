@@ -127,7 +127,7 @@ class CatalogLoader:
 class CatalogClient(AsyncBaseCoreClient):
     """STAC API client backed by local catalog."""
 
-    loader: CatalogLoader = attr.ib()
+    loader: CatalogLoader = attr.ib(kw_only=True)
 
     def _base_url(self, request: Optional[Request]) -> str:
         if request is None:
@@ -296,7 +296,7 @@ class CatalogClient(AsyncBaseCoreClient):
 class FiltersClient(AsyncBaseFiltersClient):
     """Queryables client for filter extension."""
 
-    loader: CatalogLoader = attr.ib()
+    loader: CatalogLoader = attr.ib(kw_only=True)
 
     async def get_queryables(
         self, collection_id: Optional[str] = None, **kwargs
