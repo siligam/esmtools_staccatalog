@@ -63,33 +63,61 @@ def _xarray_snippet(
     experiment: str = "",
     model: str = "",
 ) -> str:
-    """Return a Python snippet that opens hrefs with xarray, with metadata comments."""
-    lines = ["import xarray as xr", ""]
+    """Return a fenced Python snippet that opens a single item with xarray.
+
+    The intake-xarray alternative is included but commented out so the snippet
+    is immediately runnable as-is.
+    """
+    code: List[str] = ["import xarray as xr"]
     if experiment:
-        lines.append(f"# experiment : {experiment!r}")
+        code.append(f"# experiment : {experiment!r}")
     if model:
-        lines.append(f"# model      : {model!r}")
+        code.append(f"# model      : {model!r}")
     if variable:
-        lines.append(f"# variable   : {variable!r}")
-    if experiment or model or variable:
-        lines.append("")
+        code.append(f"# variable   : {variable!r}")
+    code.append("")
+
     if len(hrefs) == 1:
-        lines.append(f'ds = xr.open_dataset(r"{hrefs[0]}", engine="netcdf4", decode_times=True)')
+        path = hrefs[0]
+        code += [
+            f'ds = xr.open_dataset(r"{path}", engine="netcdf4", decode_times=True)',
+            "",
+            "# --- alternatively with intake-xarray ---",
+            "# import intake",
+            f'# source = intake.open_netcdf(r"{path}", xarray_kwargs={{"engine": "netcdf4", "decode_times": True}})',
+            "# ds = source.read()",
+        ]
     else:
-        lines.append(f"# {len(hrefs)} file(s)")
-        lines.append("paths = [")
+        code.append("paths = [")
         for h in hrefs:
-            lines.append(f'    r"{h}",')
-        lines.append("]")
-        lines.append(
-            'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)'
-        )
-    return "\n".join(lines)
+            code.append(f'    r"{h}",')
+        code += [
+            "]",
+            "",
+            'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
+            "",
+            "# --- alternatively with intake-xarray ---",
+            "# import intake",
+            "# source = intake.open_netcdf(",
+            "#     paths,",
+            '#     xarray_kwargs={"engine": "netcdf4", "combine": "by_coords", "decode_times": True},',
+            "# )",
+            "# ds = source.read()",
+        ]
+
+    inner = "\n".join(code)
+    return f"```python\n{inner}\n```"
 
 
-def _collection_xarray_snippet(items: List[dict]) -> str:
-    """Return a multi-file xarray + intake snippet for a full result set (all pages)."""
-    hrefs: List[str] = []
+def _collection_xarray_snippet(
+    items: List[dict],
+    api_url: str = "http://localhost:9092",
+    collection_id: str = "",
+) -> str:
+    """Return a fenced Python snippet that queries the STAC API via pystac-client
+    and opens the results with xarray.  The intake-xarray alternative is
+    included but commented out so the snippet is immediately runnable.
+    """
     variables: List[str] = []
     experiment = ""
     model = ""
@@ -103,60 +131,62 @@ def _collection_xarray_snippet(items: List[dict]) -> str:
         var = props.get("variable", "")
         if var and var not in variables:
             variables.append(var)
-        for asset in item.get("assets", {}).values():
-            href = asset.get("href", "")
-            if href and href != "inline":
-                hrefs.append(href)
 
-    if not hrefs:
-        return "# No data files found in this selection."
+    if not items:
+        return "```python\n# No data files found in this selection.\n```"
 
     variable_str = variables[0] if len(variables) == 1 else ", ".join(sorted(variables))
+    col_id = collection_id or "<collection-id>"
 
-    lines = [
+    # Build the filter expression string.
+    filter_parts: List[str] = []
+    if variables:
+        filter_parts.append(f"variable = '{variable_str}'")
+    if experiment:
+        filter_parts.append(f"experiment = '{experiment}'")
+    filter_expr = " AND ".join(filter_parts) if filter_parts else ""
+
+    code: List[str] = [
         "import xarray as xr",
-        "import intake",
+        "import pystac_client",
         "",
     ]
     if experiment:
-        lines.append(f"# experiment : {experiment!r}")
+        code.append(f"# experiment : {experiment!r}")
     if model:
-        lines.append(f"# model      : {model!r}")
+        code.append(f"# model      : {model!r}")
     if variables:
-        lines.append(f"# variable(s): {variable_str!r}")
-    lines.append(f"# files      : {len(hrefs)}")
-    lines.append("")
+        code.append(f"# variable(s): {variable_str!r}")
+    code += [
+        "",
+        f'catalog = pystac_client.Client.open("{api_url}")',
+        "results = catalog.search(",
+        f'    collections=["{col_id}"],',
+    ]
+    if filter_expr:
+        code += [
+            f'    filter="{filter_expr}",',
+            '    filter_lang="cql2-text",',
+        ]
+    code += [
+        "    max_items=None,",
+        ")",
+        "",
+        "paths = [item.assets[\"data\"].href for item in results.items()]",
+        "",
+        'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
+        "",
+        "# --- alternatively with intake-xarray ---",
+        "# import intake",
+        "# source = intake.open_netcdf(",
+        "#     paths,",
+        '#     xarray_kwargs={"engine": "netcdf4", "combine": "by_coords", "decode_times": True},',
+        "# )",
+        "# ds = source.read()",
+    ]
 
-    if len(hrefs) == 1:
-        lines += [
-            "# --- xarray ---",
-            f'ds = xr.open_dataset(r"{hrefs[0]}", engine="netcdf4", decode_times=True)',
-            "",
-            "# --- intake-xarray ---",
-            f'source = intake.open_netcdf(r"{hrefs[0]}", xarray_kwargs={{"engine": "netcdf4", "decode_times": True}})',
-            "ds = source.read()",
-        ]
-    else:
-        lines += [
-            "paths = [",
-        ]
-        for h in hrefs:
-            lines.append(f'    r"{h}",')
-        lines += [
-            "]",
-            "",
-            "# --- xarray ---",
-            'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
-            "",
-            "# --- intake-xarray ---",
-            "source = intake.open_netcdf(",
-            "    paths,",
-            '    xarray_kwargs={"engine": "netcdf4", "combine": "by_coords", "decode_times": True},',
-            ")",
-            "ds = source.read()",
-        ]
-
-    return "\n".join(lines)
+    inner = "\n".join(code)
+    return f"```python\n{inner}\n```"
 
 
 def _inject_snippet(item: dict) -> dict:
@@ -501,14 +531,30 @@ class FesomsClient(AsyncBaseCoreClient):
             {"rel": "root",       "href": f"{base_url}/",                                            "type": "application/json"},
         ]
 
-    def _item_collection_links(self, base_url: str, collection_id: str) -> List[Dict]:
+    def _item_collection_links(
+        self,
+        base_url: str,
+        collection_id: str,
+        offset: int = 0,
+        limit: int = 10,
+        total: int = 0,
+        extra_params: str = "",
+    ) -> List[Dict]:
         if not base_url:
             return []
-        return [
-            {"rel": "self",       "href": f"{base_url}/collections/{collection_id}/items", "type": "application/geo+json"},
-            {"rel": "collection", "href": f"{base_url}/collections/{collection_id}",       "type": "application/json"},
-            {"rel": "root",       "href": f"{base_url}/",                                  "type": "application/json"},
+        base_items = f"{base_url}/collections/{collection_id}/items"
+        qs = f"limit={limit}{extra_params}"
+        links = [
+            {"rel": "self",       "href": f"{base_items}?{qs}&token={offset}", "type": "application/geo+json"},
+            {"rel": "collection", "href": f"{base_url}/collections/{collection_id}",  "type": "application/json"},
+            {"rel": "root",       "href": f"{base_url}/",                             "type": "application/json"},
         ]
+        if offset + limit < total:
+            links.append({"rel": "next", "href": f"{base_items}?{qs}&token={offset + limit}", "type": "application/geo+json"})
+        if offset > 0:
+            prev = max(0, offset - limit)
+            links.append({"rel": "prev", "href": f"{base_items}?{qs}&token={prev}", "type": "application/geo+json"})
+        return links
 
     def _search_links(self, base_url: str) -> List[Dict]:
         if not base_url:
@@ -545,6 +591,54 @@ class FesomsClient(AsyncBaseCoreClient):
         if col is None:
             raise NotFoundError(f"Collection {collection_id!r} not found")
         col["links"] = self._collection_links(base_url, collection_id)
+
+        # Read any active filter params so datacube and snippet reflect the selection.
+        variable: Optional[str] = None
+        experiment: Optional[str] = None
+        model: Optional[str] = None
+        if request:
+            variable   = request.query_params.get("variable")   or None
+            experiment = request.query_params.get("experiment") or None
+            model      = request.query_params.get("model")      or None
+            cql_expr   = request.query_params.get("filter")
+            cql_lang   = request.query_params.get("filter-lang", "cql2-text")
+            if cql_expr:
+                cql        = _parse_cql2(cql_expr, cql_lang)
+                variable   = variable   or cql.get("variable")
+                experiment = experiment or cql.get("experiment")
+                model      = model      or cql.get("model")
+
+        if variable or experiment or model:
+            # Narrow cube:variables to only the variables present in filtered items.
+            all_items = self.loader.get_items_for_collection(collection_id)
+            if variable:
+                all_items = [i for i in all_items if i.get("properties", {}).get("variable") == variable]
+            if experiment:
+                all_items = [i for i in all_items if i.get("properties", {}).get("experiment") == experiment]
+            if model:
+                all_items = [i for i in all_items if i.get("properties", {}).get("model") == model]
+
+            filtered_vars = sorted({
+                i.get("properties", {}).get("variable", "")
+                for i in all_items
+                if i.get("properties", {}).get("variable")
+            })
+            if filtered_vars:
+                col["cube:variables"] = {
+                    v: {"type": "data", "dimensions": ["time", "latitude", "longitude"]}
+                    for v in filtered_vars
+                }
+
+            # Inject xarray/intake snippet as a collection asset.
+            snippet = _collection_xarray_snippet(all_items, api_url=base_url, collection_id=collection_id)
+            col.setdefault("assets", {})["xarray_snippet"] = {
+                "href": "inline",
+                "type": "text/x-python",
+                "title": "Open filtered selection with xarray / intake-xarray",
+                "roles": ["metadata"],
+                "description": snippet,
+            }
+
         return col
 
     async def get_item(self, item_id: str, collection_id: str, **kwargs) -> Dict:
@@ -555,7 +649,27 @@ class FesomsClient(AsyncBaseCoreClient):
             raise NotFoundError(f"Item {item_id!r} not found in collection {collection_id!r}")
         item["collection"] = collection_id
         item["links"] = self._item_links(base_url, collection_id, item_id)
-        return _inject_snippet(item)
+
+        # Single-file snippet for this item.
+        item = _inject_snippet(item)
+
+        # Second asset: load ALL timesteps for the same variable from this collection.
+        variable = item.get("properties", {}).get("variable", "")
+        experiment = item.get("properties", {}).get("experiment", "")
+        model = item.get("properties", {}).get("model", "")
+        if variable:
+            all_items = self.loader.get_items_for_collection(collection_id)
+            same_var = [i for i in all_items if i.get("properties", {}).get("variable") == variable]
+            all_snippet = _collection_xarray_snippet(same_var, api_url=base_url, collection_id=collection_id)
+            item["assets"]["load_all_timesteps"] = {
+                "href": "inline",
+                "type": "text/x-python",
+                "title": f"Load all '{variable}' timesteps from this collection",
+                "roles": ["metadata"],
+                "description": all_snippet,
+            }
+
+        return item
 
     async def item_collection(
         self,
@@ -601,7 +715,7 @@ class FesomsClient(AsyncBaseCoreClient):
         total_matched = len(items)
 
         # Build the collection-level snippet from ALL matched items (before page slice).
-        collection_snippet = _collection_xarray_snippet(items)
+        collection_snippet = _collection_xarray_snippet(items, api_url=base_url, collection_id=collection_id)
 
         offset = 0
         if token:
@@ -615,14 +729,37 @@ class FesomsClient(AsyncBaseCoreClient):
             item["collection"] = collection_id
             item["links"] = self._item_links(base_url, collection_id, item["id"])
 
+        # Build extra query-string params to preserve filters in next/prev links.
+        extra_qs = ""
+        if variable:
+            extra_qs += f"&variable={variable}"
+        if experiment:
+            extra_qs += f"&experiment={experiment}"
+        if model:
+            extra_qs += f"&model={model}"
+
         return {
             "type": "FeatureCollection",
             "features": [_inject_snippet(i) for i in page],
-            "links": self._item_collection_links(base_url, collection_id),
+            "links": self._item_collection_links(
+                base_url, collection_id,
+                offset=offset, limit=limit, total=total_matched,
+                extra_params=extra_qs,
+            ),
             "numberMatched": total_matched,
             "numberReturned": len(page),
             # Non-standard extension field: ready-to-run snippet for the full selection.
             "fesom:code_snippet": collection_snippet,
+            # Asset entry so STAC Browser surfaces the snippet in the Assets panel.
+            "assets": {
+                "xarray_snippet": {
+                    "href": "inline",
+                    "type": "text/x-python",
+                    "title": "Open filtered selection with xarray / intake-xarray",
+                    "roles": ["metadata"],
+                    "description": collection_snippet,
+                }
+            },
         }
 
     async def post_search(self, search_request: BaseSearchPostRequest, **kwargs) -> Dict:
@@ -677,7 +814,7 @@ class FesomsClient(AsyncBaseCoreClient):
             col_id = item.get("collection", "")
             item["links"] = self._item_links(base_url, col_id, item["id"])
 
-        collection_snippet = _collection_xarray_snippet(items)
+        collection_snippet = _collection_xarray_snippet(items, api_url=base_url, collection_id="")
 
         return {
             "type": "FeatureCollection",
