@@ -1,0 +1,146 @@
+"""
+STAC Item Generator Workflow
+
+Processes NetCDF files into STAC Item JSON files.
+
+Config (passed via --config):
+    experiments_json: Path to experiments.json
+    output_dir: Output catalog directory
+"""
+
+import json
+import uuid
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+import pystac
+import xarray as xr
+
+
+# Load experiment metadata
+with open(config["experiments_json"]) as f:
+    EXPERIMENTS = json.load(f)
+
+OUTPUT_DIR = Path(config["output_dir"])
+
+
+def get_all_outputs():
+    """Generate all expected output JSON files."""
+    outputs = []
+    for exp_name, exp_data in EXPERIMENTS.items():
+        for model_name, files in exp_data.get("files", {}).items():
+            for nc_file in files:
+                stem = Path(nc_file).stem
+                uid = uuid.uuid5(uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8"), stem)
+                item_id = f"{uid.hex[:8]}-{stem}"
+                outputs.append(OUTPUT_DIR / exp_name / model_name / f"{item_id}.json")
+    return outputs
+
+
+rule all:
+    input:
+        get_all_outputs()
+
+
+rule stac_item:
+    output:
+        item=OUTPUT_DIR / "{exp}" / "{model}" / "{item_id}.json"
+    conda:
+        "envs/stac.yaml"
+    run:
+        import json
+        import uuid
+        import re
+        from datetime import datetime, timezone
+        from pathlib import Path
+        import pystac
+        import xarray as xr
+
+        exp_data = EXPERIMENTS[wildcards.exp]
+        exp_meta = exp_data.get("experiment_meta", {})
+        model_meta = exp_data.get("model_meta", {}).get(wildcards.model, {})
+
+        # Find the NC file that matches this item_id
+        nc_file = None
+        for f in exp_data.get("files", {}).get(wildcards.model, []):
+            stem = Path(f).stem
+            uid = uuid.uuid5(uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8"), stem)
+            if wildcards.item_id == f"{uid.hex[:8]}-{stem}":
+                nc_file = f
+                break
+
+        if nc_file is None:
+            raise ValueError(f"No NC file found for {wildcards.item_id}")
+
+        p = Path(nc_file)
+
+        # Variable name from filename
+        variable = p.stem.split(".")[0]
+
+        # Datetime from filename (YYYYMM pattern)
+        m = re.search(r'\.(\d{6})\.\d{2}\.nc$', p.name)
+        if m:
+            yyyymm = m.group(1)
+            dt = datetime(int(yyyymm[:4]), int(yyyymm[4:6]), 1, tzinfo=timezone.utc)
+        else:
+            dt = datetime.now(timezone.utc)
+        dt_iso = dt.isoformat()
+
+        # Extract CF parameters from NetCDF
+        cf_params = []
+        try:
+            ds = xr.open_dataset(nc_file, decode_times=True)
+            for var_name, da in ds.data_vars.items():
+                std_name = da.attrs.get("standard_name") or da.attrs.get("long_name")
+                if std_name:
+                    param = {"name": std_name, "variable": var_name}
+                    if "units" in da.attrs:
+                        param["unit"] = da.attrs["units"]
+                    cf_params.append(param)
+            ds.close()
+        except Exception:
+            pass
+
+        # Build STAC Item
+        item = pystac.Item(
+            id=wildcards.item_id,
+            geometry={"type": "Polygon", "coordinates": [[[-180,-90],[180,-90],[180,90],[-180,90],[-180,-90]]]},
+            bbox=[-180.0, -90.0, 180.0, 90.0],
+            datetime=dt,
+            properties={
+                "model": wildcards.model,
+                "experiment": wildcards.exp,
+                "variable": variable,
+            },
+            stac_extensions=[
+                "https://stac-extensions.github.io/datacube/v2.2.0/schema.json",
+                "https://stac-extensions.github.io/cf/v0.2.0/schema.json",
+            ],
+        )
+
+        if cf_params:
+            item.properties["cf:parameter"] = cf_params
+
+        # Datacube extension
+        item.properties["cube:dimensions"] = {
+            "time": {"type": "temporal", "extent": [dt_iso, dt_iso]},
+            "longitude": {"type": "spatial", "axis": "x", "extent": [-180.0, 180.0], "reference_system": "EPSG:4326"},
+            "latitude": {"type": "spatial", "axis": "y", "extent": [-90.0, 90.0], "reference_system": "EPSG:4326"},
+        }
+        item.properties["cube:variables"] = {
+            variable: {
+                "type": "data",
+                "dimensions": ["time", "latitude", "longitude"],
+            }
+        }
+
+        item.add_asset("data", pystac.Asset(
+            href=str(p.absolute()),
+            media_type="application/x-netcdf",
+            roles=["data"],
+        ))
+
+        # Write JSON
+        Path(output.item).parent.mkdir(parents=True, exist_ok=True)
+        with open(output.item, "w") as f:
+            json.dump(item.to_dict(), f, indent=2)
