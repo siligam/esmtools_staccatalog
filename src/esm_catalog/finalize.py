@@ -71,12 +71,12 @@ def _finalize_distributed(experiments: dict, root_catalog_dir: Path) -> None:
         catalog_dir = exp_base / "catalog"
         exp_meta = exp_data.get("experiment_meta", {})
 
-        # Relative path from root to experiment catalog
+        # Relative path from root catalog.json to experiment catalog.json
         try:
-            rel_path = catalog_dir.relative_to(root_catalog_dir.parent)
+            rel_path = (catalog_dir / "catalog.json").relative_to(root_catalog_dir)
             root_links.append({
                 "rel": "child",
-                "href": f"./{rel_path}/catalog.json",
+                "href": f"./{rel_path}",
                 "type": "application/json",
                 "title": exp_name,
             })
