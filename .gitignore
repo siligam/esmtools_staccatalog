@@ -1,0 +1,13 @@
+# Markdown files
+*.md
+
+# Backup files
+*~
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# hidden files
+.gitignore.claude/
