@@ -255,7 +255,9 @@ def _parse_cql2_text(expr: str) -> Dict[str, Any]:
                 (m.group(5) or "").strip())
         if prop.upper() in ("AND", "OR", "NOT"):
             continue
-        result[prop] = (op, value)
+        # Lowercase only well-known fields; preserve case for FESOM_ and other props.
+        key = prop.lower() if prop.lower() in ("variable", "experiment", "model") else prop
+        result[key] = (op, value)
     return result
 
 
@@ -277,7 +279,9 @@ def _parse_cql2_json(expr: Any) -> Dict[str, Any]:
         if op in _cql2_op_map and len(args) == 2:
             prop_node, val_node = args
             if isinstance(prop_node, dict) and "property" in prop_node:
-                result[prop_node["property"]] = (_cql2_op_map[op], str(val_node))
+                prop = prop_node["property"]
+                key = prop.lower() if prop.lower() in ("variable", "experiment", "model") else prop
+                result[key] = (_cql2_op_map[op], str(val_node))
         elif op in ("and", "or") and isinstance(args, list):
             for arg in args:
                 _walk(arg)
@@ -922,7 +926,7 @@ class FesomsClient(AsyncBaseCoreClient):
             if isinstance(raw_filter, str):
                 cql = _parse_cql2_text(raw_filter)
             else:
-                cql = _parse_cql2_json(str(raw_filter))
+                cql = _parse_cql2_json(raw_filter)
             variable   = variable   or _cql_val(cql, "variable")
             experiment = experiment or _cql_val(cql, "experiment")
             model      = model      or _cql_val(cql, "model")
