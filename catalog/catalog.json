@@ -1,6 +1,6 @@
 {
   "type": "Catalog",
-  "id": "1b39773c-fesom-stac-catalog",
+  "id": "fesom-stac-catalog",
   "title": "ESM Tools Experiments",
   "stac_version": "1.0.0",
   "description": "STAC catalog of AWIESM experiment output",

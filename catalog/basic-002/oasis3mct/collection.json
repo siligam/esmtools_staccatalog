@@ -1,6 +1,6 @@
 {
   "type": "Collection",
-  "id": "141698ad-basic-002-oasis3mct",
+  "id": "basic-002-oasis3mct",
   "stac_version": "1.0.0",
   "description": "oasis3mct output for experiment basic-002",
   "links": [
@@ -21,162 +21,162 @@
     },
     {
       "rel": "item",
-      "href": "./3ef60d88-evap_atm_echam6_06.json",
+      "href": "./evap_atm_echam6_06.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./9593bacd-evap_oce_fesom_06.json",
+      "href": "./evap_oce_fesom_06.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./66738109-heat_atm_echam6_08.json",
+      "href": "./heat_atm_echam6_08.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./80cfb0c6-heat_ica_echam6_09.json",
+      "href": "./heat_ica_echam6_09.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./01144aa8-heat_ico_fesom_09.json",
+      "href": "./heat_ico_fesom_09.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./39284479-heat_oce_fesom_08.json",
+      "href": "./heat_oce_fesom_08.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./e767fbd4-heat_swa_echam6_10.json",
+      "href": "./heat_swa_echam6_10.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./2bf5c8bc-heat_swo_fesom_10.json",
+      "href": "./heat_swo_fesom_10.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./83ab01c9-hydr_atm_echam6_11.json",
+      "href": "./hydr_atm_echam6_11.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./4e153c1a-hydr_oce_fesom_11.json",
+      "href": "./hydr_oce_fesom_11.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./076d44a5-prec_atm_echam6_04.json",
+      "href": "./prec_atm_echam6_04.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./4f0a506f-prec_oce_fesom_04.json",
+      "href": "./prec_oce_fesom_04.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./db59f91b-sie_atmo_echam6_01.json",
+      "href": "./sie_atmo_echam6_01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./99eb9ae3-sie_feom_fesom_01.json",
+      "href": "./sie_feom_fesom_01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./71ba05f4-sit_atmo_echam6_01.json",
+      "href": "./sit_atmo_echam6_01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./d7d8a3f7-sit_feom_fesom_01.json",
+      "href": "./sit_feom_fesom_01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./bebb8c11-snow_atm_echam6_05.json",
+      "href": "./snow_atm_echam6_05.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./17a80248-snow_oce_fesom_05.json",
+      "href": "./snow_oce_fesom_05.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./a683eb28-snt_atmo_echam6_02.json",
+      "href": "./snt_atmo_echam6_02.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./8f9d5215-snt_feom_fesom_02.json",
+      "href": "./snt_feom_fesom_02.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./3738dbfa-sst_atmo_echam6_01.json",
+      "href": "./sst_atmo_echam6_01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./b596027a-sst_feom_fesom_01.json",
+      "href": "./sst_feom_fesom_01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./45fa535a-subl_atm_echam6_07.json",
+      "href": "./subl_atm_echam6_07.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./73b0ce9a-subl_oce_fesom_07.json",
+      "href": "./subl_oce_fesom_07.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./e8043baa-taux_atm_echam6_03.json",
+      "href": "./taux_atm_echam6_03.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./1874aa19-taux_ica_echam6_03.json",
+      "href": "./taux_ica_echam6_03.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./2fdb4603-taux_ico_fesom_03.json",
+      "href": "./taux_ico_fesom_03.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./23a557f5-taux_oce_fesom_03.json",
+      "href": "./taux_oce_fesom_03.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./66c10043-tauy_atm_echam6_03.json",
+      "href": "./tauy_atm_echam6_03.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./647d9520-tauy_ica_echam6_03.json",
+      "href": "./tauy_ica_echam6_03.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./b6fbf251-tauy_ico_fesom_03.json",
+      "href": "./tauy_ico_fesom_03.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./6163840e-tauy_oce_fesom_03.json",
+      "href": "./tauy_oce_fesom_03.json",
       "type": "application/geo+json"
     }
   ],

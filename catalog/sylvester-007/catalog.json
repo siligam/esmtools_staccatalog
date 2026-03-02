@@ -1,6 +1,6 @@
 {
   "type": "Catalog",
-  "id": "19eafa04-sylvester-007",
+  "id": "sylvester-007",
   "title": "sylvester-007",
   "stac_version": "1.0.0",
   "description": "Experiment sylvester-007 | Setup: awiesm | Scenario: PI-CTRL | Resolution: T63_CORE2",

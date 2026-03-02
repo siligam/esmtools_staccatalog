@@ -1,6 +1,6 @@
 {
   "type": "Catalog",
-  "id": "23b084f1-echam-standalone-006",
+  "id": "echam-standalone-006",
   "title": "echam-standalone-006",
   "stac_version": "1.0.0",
   "description": "Experiment echam-standalone-006 | Setup: echam | Scenario: None | Resolution: None",

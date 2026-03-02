@@ -1,6 +1,6 @@
 {
   "type": "Catalog",
-  "id": "148a2c57-garfield-001",
+  "id": "garfield-001",
   "title": "garfield-001",
   "stac_version": "1.0.0",
   "description": "Experiment garfield-001 | Setup: awiesm | Scenario: PI-CTRL | Resolution: T63_CORE2",
