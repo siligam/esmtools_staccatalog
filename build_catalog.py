@@ -1,6 +1,5 @@
 import json
 import re
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,18 +31,9 @@ STAC_EXTENSIONS = [
 
 DATACUBE_EXTENSION = "https://stac-extensions.github.io/datacube/v2.2.0/schema.json"
 
-STAC_UUID_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
-
-
 def make_short_id(name):
-    """Return a short, deterministic ID: first 8 hex chars of UUID5 + '-' + name.
-
-    This gives a unique yet human-readable ID that is safe to use in URL
-    endpoints without excessive typing.
-    """
-    uid = uuid.uuid5(STAC_UUID_NAMESPACE, name)
-    prefix = uid.hex[:8]
-    return f"{prefix}-{name}"
+    """Return the plain name as the ID (no UUID prefix)."""
+    return name
 
 
 def make_item_title(variable_name, model_name, yyyymm):

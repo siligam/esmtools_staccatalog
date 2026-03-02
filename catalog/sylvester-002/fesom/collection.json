@@ -1,6 +1,6 @@
 {
   "type": "Collection",
-  "id": "916b2897-sylvester-002-fesom",
+  "id": "sylvester-002-fesom",
   "stac_version": "1.0.0",
   "description": "fesom output for experiment sylvester-002",
   "links": [
@@ -21,67 +21,67 @@
     },
     {
       "rel": "item",
-      "href": "./d67f3ed2-MLD1.fesom.185001.01.json",
+      "href": "./MLD1.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./927bb85b-MLD2.fesom.185001.01.json",
+      "href": "./MLD2.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./670c5c76-a_ice.fesom.185001.01.json",
+      "href": "./a_ice.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./70ac3dc8-m_ice.fesom.185001.01.json",
+      "href": "./m_ice.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./5dcd92a1-m_snow.fesom.185001.01.json",
+      "href": "./m_snow.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./f8aaf16c-momix_length.fesom.185001.01.json",
+      "href": "./momix_length.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./291ba97a-ssh.fesom.185001.01.json",
+      "href": "./ssh.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./3e5bd6b0-sss.fesom.185001.01.json",
+      "href": "./sss.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./13a7d9d3-sst.fesom.185001.01.json",
+      "href": "./sst.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./2aa9510b-tx_sur.fesom.185001.01.json",
+      "href": "./tx_sur.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./8f287597-ty_sur.fesom.185001.01.json",
+      "href": "./ty_sur.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./dbea800d-uice.fesom.185001.01.json",
+      "href": "./uice.fesom.185001.01.json",
       "type": "application/geo+json"
     },
     {
       "rel": "item",
-      "href": "./392b6f02-vice.fesom.185001.01.json",
+      "href": "./vice.fesom.185001.01.json",
       "type": "application/geo+json"
     }
   ],
