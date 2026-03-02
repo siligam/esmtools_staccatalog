@@ -1,6 +1,3 @@
-# Markdown files
-*.md
-
 # Backup files
 *~
 
@@ -10,4 +7,8 @@ __pycache__/
 *.pyo
 
 # hidden files
-.gitignore.claude/
+.gitignore
+.claude/
+
+# markdown files
+plan.md

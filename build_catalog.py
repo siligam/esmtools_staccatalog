@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pystac
 import xarray as xr
+from upath import UPath
 
 
 GLOBAL_BBOX = [-180.0, -90.0, 180.0, 90.0]
@@ -113,7 +114,7 @@ def build_item(filepath, exp_meta, model_name, meta, exp_name=None):
     Returns:
         pystac.Item with all extensions and enriched properties.
     """
-    p = Path(filepath)
+    p = UPath(filepath)
     md = meta.get("metadata", {}) or {}
     if exp_name is None:
         exp_name = exp_meta.get("expid", p.parts[-1])

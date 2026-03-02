@@ -28,6 +28,7 @@ from typing import Annotated, Any, Dict, List, Optional, Tuple
 import attr
 import pystac
 import uvicorn
+from upath import UPath
 from fastapi import Query
 from fastapi.responses import JSONResponse
 from starlette.middleware import Middleware
@@ -62,13 +63,13 @@ def _xarray_snippet(
     variable: str = "",
     experiment: str = "",
     model: str = "",
+    item_url: str = "",
 ) -> str:
-    """Return a fenced Python snippet that opens a single item with xarray.
+    """Return a fenced Python snippet that opens a single item with intake-stac.
 
-    The intake-xarray alternative is included but commented out so the snippet
-    is immediately runnable as-is.
+    intake-stac is the primary method; xarray direct-open is the alternative.
     """
-    code: List[str] = ["import xarray as xr"]
+    code: List[str] = ["import intake"]
     if experiment:
         code.append(f"# experiment : {experiment!r}")
     if model:
@@ -77,32 +78,37 @@ def _xarray_snippet(
         code.append(f"# variable   : {variable!r}")
     code.append("")
 
-    if len(hrefs) == 1:
+    if item_url:
+        code += [
+            f'item = intake.open_stac_item("{item_url}")',
+            'ds = item["data"].to_dask()',
+        ]
+    elif len(hrefs) == 1:
         path = hrefs[0]
         code += [
-            f'ds = xr.open_dataset(r"{path}", engine="netcdf4", decode_times=True)',
-            "",
-            "# --- alternatively with intake-xarray ---",
-            "# import intake",
-            f'# source = intake.open_netcdf(r"{path}", xarray_kwargs={{"engine": "netcdf4", "decode_times": True}})',
-            "# ds = source.read()",
+            f'item = intake.open_stac_item_collection([r"{path}"])',
+            'ds = item["data"].to_dask()',
         ]
     else:
-        code.append("paths = [")
-        for h in hrefs:
-            code.append(f'    r"{h}",')
         code += [
-            "]",
+            "# load individual assets by href",
+            "from upath import UPath",
+            "import xarray as xr",
+            "paths = [",
+        ]
+        for h in hrefs:
+            code.append(f'    UPath(r"{h}"),')
+        code.append("]")
+        code.append('ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)')
+
+    if item_url or len(hrefs) == 1:
+        path = hrefs[0] if hrefs else ""
+        code += [
             "",
-            'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
-            "",
-            "# --- alternatively with intake-xarray ---",
-            "# import intake",
-            "# source = intake.open_netcdf(",
-            "#     paths,",
-            '#     xarray_kwargs={"engine": "netcdf4", "combine": "by_coords", "decode_times": True},',
-            "# )",
-            "# ds = source.read()",
+            "# --- alternatively with xarray directly ---",
+            "# from upath import UPath",
+            "# import xarray as xr",
+            f'# ds = xr.open_dataset(UPath(r"{path}"), engine="netcdf4", decode_times=True)',
         ]
 
     inner = "\n".join(code)
@@ -114,9 +120,9 @@ def _collection_xarray_snippet(
     api_url: str = "http://localhost:9092",
     collection_id: str = "",
 ) -> str:
-    """Return a fenced Python snippet that queries the STAC API via pystac-client
-    and opens the results with xarray.  The intake-xarray alternative is
-    included but commented out so the snippet is immediately runnable.
+    """Return a fenced Python snippet that opens a collection via intake-stac.
+
+    intake-stac is the primary method; xarray/pystac-client is the alternative.
     """
     variables: List[str] = []
     experiment = ""
@@ -146,11 +152,7 @@ def _collection_xarray_snippet(
         filter_parts.append(f"experiment = '{experiment}'")
     filter_expr = " AND ".join(filter_parts) if filter_parts else ""
 
-    code: List[str] = [
-        "import xarray as xr",
-        "import pystac_client",
-        "",
-    ]
+    code: List[str] = ["import intake"]
     if experiment:
         code.append(f"# experiment : {experiment!r}")
     if model:
@@ -159,52 +161,69 @@ def _collection_xarray_snippet(
         code.append(f"# variable(s): {variable_str!r}")
     code += [
         "",
-        f'catalog = pystac_client.Client.open("{api_url}")',
-        "results = catalog.search(",
-        f'    collections=["{col_id}"],',
+        f'collection = intake.open_stac_collection("{api_url}/collections/{col_id}")',
+        "entries = list(collection)",
+        "import xarray as xr",
+        "from upath import UPath",
+        "paths = [UPath(collection[entry].urlpath) for entry in entries]",
+        'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
+    ]
+    code += [
+        "",
+        "# --- alternatively with pystac-client + xarray ---",
+        "# import pystac_client",
+        "# import xarray as xr",
+        "# from upath import UPath",
+        f'# catalog = pystac_client.Client.open("{api_url}")',
+        "# results = catalog.search(",
+        f'#     collections=["{col_id}"],',
     ]
     if filter_expr:
         code += [
-            f'    filter="{filter_expr}",',
-            '    filter_lang="cql2-text",',
+            f'#     filter="{filter_expr}",',
+            '#     filter_lang="cql2-text",',
         ]
     code += [
-        "    max_items=None,",
-        ")",
-        "",
-        "paths = [item.assets[\"data\"].href for item in results.items()]",
-        "",
-        'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
-        "",
-        "# --- alternatively with intake-xarray ---",
-        "# import intake",
-        "# source = intake.open_netcdf(",
-        "#     paths,",
-        '#     xarray_kwargs={"engine": "netcdf4", "combine": "by_coords", "decode_times": True},',
+        "#     max_items=None,",
         "# )",
-        "# ds = source.read()",
+        "# paths = [UPath(item.assets[\"data\"].href) for item in results.items()]",
+        '# ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
     ]
 
     inner = "\n".join(code)
     return f"```python\n{inner}\n```"
 
 
-def _inject_snippet(item: dict) -> dict:
+def _inject_snippet(item: dict, base_url: str = "") -> dict:
     """Return a copy of item dict with an xarray_snippet asset added."""
     item = dict(item)
     assets = dict(item.get("assets", {}))
     props = item.get("properties", {})
     hrefs = [a["href"] for a in assets.values() if "href" in a and a["href"] != "inline"]
+
+    # Derive the item's API URL from its self link or from base_url + collection + id.
+    item_url = ""
+    for lnk in item.get("links", []):
+        if lnk.get("rel") == "self":
+            item_url = lnk.get("href", "")
+            break
+    if not item_url and base_url:
+        col_id = item.get("collection", "")
+        item_id = item.get("id", "")
+        if col_id and item_id:
+            item_url = f"{base_url}/collections/{col_id}/items/{item_id}"
+
     assets["xarray_snippet"] = {
         "href": "inline",
         "type": "text/x-python",
-        "title": "Open with xarray",
+        "title": "Open with intake-stac",
         "roles": ["metadata"],
         "description": _xarray_snippet(
             hrefs,
             variable=props.get("variable", ""),
             experiment=props.get("experiment", ""),
             model=props.get("model", ""),
+            item_url=item_url,
         ),
     }
     item["assets"] = assets
@@ -215,43 +234,70 @@ def _inject_snippet(item: dict) -> dict:
 # CQL2 filter parser (equality-only, enough for STAC Browser filter UI)
 # ---------------------------------------------------------------------------
 
-def _parse_cql2_text(expr: str) -> Dict[str, str]:
-    """Parse simple CQL2-TEXT equality expressions → {prop: value}.
+def _parse_cql2_text(expr: str) -> Dict[str, Any]:
+    """Parse CQL2-TEXT equality and comparison expressions.
 
     Handles:  variable = 'ssh'
-              experiment = 'basic-001' AND variable = 'ssh'
+              FESOM_evp_rheol_steps < 120
+              experiment = 'basic-001' AND FESOM_evp_rheol_steps >= 100
+
+    Returns {prop: (op, value_str)} for comparisons,
+            {prop: ('=', value_str)} for equality.
     """
-    result: Dict[str, str] = {}
-    for m in re.finditer(r"\b(\w+)\s*=\s*(?:'([^']*)'|\"([^\"]*)\")", expr, re.IGNORECASE):
+    result: Dict[str, Any] = {}
+    # Match: identifier  op  'quoted' or unquoted-number
+    pattern = r"\b(\w+)\s*(<=|>=|<|>|=)\s*(?:'([^']*)'|\"([^\"]*)\"|(\S+?)(?:\s|$|AND|OR))"
+    for m in re.finditer(pattern, expr, re.IGNORECASE):
         prop = m.group(1)
-        value = m.group(2) if m.group(2) is not None else m.group(3)
-        result[prop] = value
+        op   = m.group(2)
+        value = m.group(3) if m.group(3) is not None else (
+                m.group(4) if m.group(4) is not None else
+                (m.group(5) or "").strip())
+        if prop.upper() in ("AND", "OR", "NOT"):
+            continue
+        result[prop] = (op, value)
     return result
 
 
-def _parse_cql2_json(expr: str) -> Dict[str, str]:
-    """Parse simple CQL2-JSON equality expressions → {prop: value}."""
-    result: Dict[str, str] = {}
+def _parse_cql2_json(expr: Any) -> Dict[str, Any]:
+    """Parse CQL2-JSON equality and comparison expressions → {prop: (op, value_str)}."""
+    result: Dict[str, Any] = {}
     try:
-        data = _json.loads(expr)
+        data = _json.loads(expr) if isinstance(expr, str) else expr
     except Exception:
         return result
+
+    _cql2_op_map = {"eq": "=", "lt": "<", "lte": "<=", "gt": ">", "gte": ">=", "=": "="}
 
     def _walk(node: Any) -> None:
         if not isinstance(node, dict):
             return
         op = str(node.get("op", "")).lower()
         args = node.get("args", [])
-        if op == "=" and len(args) == 2:
+        if op in _cql2_op_map and len(args) == 2:
             prop_node, val_node = args
             if isinstance(prop_node, dict) and "property" in prop_node:
-                result[prop_node["property"]] = str(val_node)
+                result[prop_node["property"]] = (_cql2_op_map[op], str(val_node))
         elif op in ("and", "or") and isinstance(args, list):
             for arg in args:
                 _walk(arg)
 
     _walk(data)
     return result
+
+
+def _cql_val(cql: Dict[str, Any], key: str) -> Optional[str]:
+    """Extract a plain string value from a CQL2 parsed dict for a given key.
+
+    The parsers now return (op, value) tuples. For well-known equality fields
+    (variable, experiment, model) we only want the value part.
+    """
+    v = cql.get(key)
+    if v is None:
+        return None
+    if isinstance(v, tuple):
+        return v[1]  # (op, value) → value
+    return str(v)
 
 
 def _parse_cql2(expr: Optional[str], lang: str = "cql2-text") -> Dict[str, str]:
@@ -269,12 +315,28 @@ def _parse_cql2(expr: Optional[str], lang: str = "cql2-text") -> Dict[str, str]:
 
 _OGC_QUERYABLES_REL = "http://www.opengis.net/def/rel/ogc/1.0/queryables"
 
+def _prop_json_type(value: Any) -> str:
+    """Map a Python value to a JSON Schema type string."""
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    return "string"
+
+
 def _make_queryables(
     base_url: str,
     collection_id: str = "",
     variables: Optional[List[str]] = None,
+    extra_properties: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Build the OGC queryables JSON Schema document."""
+    """Build the OGC queryables JSON Schema document.
+
+    extra_properties maps property name → a representative sample value used
+    to infer the JSON Schema type.  Every key becomes a queryable field.
+    """
     q_id = (
         f"{base_url}/collections/{collection_id}/queryables"
         if collection_id
@@ -290,31 +352,45 @@ def _make_queryables(
     if variables:
         variable_schema["enum"] = sorted(variables)
 
+    # Fixed well-known queryables.
+    props: Dict[str, Any] = {
+        "id": {"title": "Item ID", "type": "string"},
+        "collection": {"title": "Collection", "type": "string"},
+        "datetime": {
+            "title": "Date / Time",
+            "type": "string",
+            "format": "date-time",
+        },
+        "variable": variable_schema,
+        "experiment": {
+            "title": "Experiment",
+            "description": "Experiment name (e.g. basic-001, garfield-001)",
+            "type": "string",
+        },
+        "model": {
+            "title": "Model",
+            "description": "Model component (e.g. fesom)",
+            "type": "string",
+        },
+    }
+
+    # Dynamically add every other item property.
+    _skip = {"datetime", "start_datetime", "end_datetime", "created", "updated",
+             "cf:parameter", "cube:dimensions", "cube:variables"}
+    for key, sample_val in sorted((extra_properties or {}).items()):
+        if key in props or key in _skip:
+            continue
+        props[key] = {
+            "title": key,
+            "type": _prop_json_type(sample_val),
+        }
+
     return {
         "$schema": "https://json-schema.org/draft/2019-09/schema",
         "$id": q_id,
         "type": "object",
         "title": title,
-        "properties": {
-            "id": {"title": "Item ID", "type": "string"},
-            "collection": {"title": "Collection", "type": "string"},
-            "datetime": {
-                "title": "Date / Time",
-                "type": "string",
-                "format": "date-time",
-            },
-            "variable": variable_schema,
-            "experiment": {
-                "title": "Experiment",
-                "description": "Experiment name (e.g. basic-001, garfield-001)",
-                "type": "string",
-            },
-            "model": {
-                "title": "Model",
-                "description": "Model component (e.g. fesom)",
-                "type": "string",
-            },
-        },
+        "properties": props,
     }
 
 
@@ -399,6 +475,23 @@ class CatalogLoader:
     # Items
     # ------------------------------------------------------------------
 
+    def get_all_property_keys(self, collection_id: str = "") -> Dict[str, Any]:
+        """Return a dict of property_name -> sample_value across all items.
+
+        Used to build the dynamic queryables schema.  Only the first non-None
+        value seen for each key is kept as the representative sample.
+        """
+        sample: Dict[str, Any] = {}
+        for exp_id, models in self.model_collections.items():
+            for model_id, col in models.items():
+                if collection_id and model_id != collection_id:
+                    continue
+                for item in col.get_all_items():
+                    for k, v in (item.properties or {}).items():
+                        if k not in sample and v is not None and not isinstance(v, (list, dict)):
+                            sample[k] = v
+        return sample
+
     def get_items_for_collection(self, collection_id: str) -> List[Dict[str, Any]]:
         found = self._find_collection(collection_id)
         if not found:
@@ -425,6 +518,7 @@ class CatalogLoader:
         ids: Optional[List[str]] = None,
         datetime_filter: Optional[str] = None,
         limit: int = 10,
+        properties: Optional[Dict[str, str]] = None,
     ) -> List[Dict[str, Any]]:
         results: List[Dict[str, Any]] = []
         for exp_id, models in self.model_collections.items():
@@ -441,6 +535,38 @@ class CatalogLoader:
                         continue
                     if ids and item.id not in ids:
                         continue
+                    if properties:
+                        match = True
+                        for k, filter_val in properties.items():
+                            pv = props.get(k)
+                            if pv is None:
+                                match = False
+                                break
+                            # filter_val is either a (op, value_str) tuple or a plain string.
+                            op, v = filter_val if isinstance(filter_val, tuple) else ("=", filter_val)
+                            # Try numeric comparison first, fall back to string.
+                            try:
+                                pv_cmp: Any = float(pv)
+                                v_cmp: Any  = float(v)
+                            except (TypeError, ValueError):
+                                pv_cmp = str(pv)
+                                v_cmp  = str(v)
+                            if op == "=":
+                                match = pv_cmp == v_cmp
+                            elif op == "<":
+                                match = pv_cmp < v_cmp
+                            elif op == "<=":
+                                match = pv_cmp <= v_cmp
+                            elif op == ">":
+                                match = pv_cmp > v_cmp
+                            elif op == ">=":
+                                match = pv_cmp >= v_cmp
+                            else:
+                                match = pv_cmp == v_cmp
+                            if not match:
+                                break
+                        if not match:
+                            continue
                     item_dict = item.to_dict(include_self_link=False)
                     if datetime_filter and not self._matches_datetime(item_dict, datetime_filter):
                         continue
@@ -604,9 +730,9 @@ class FesomsClient(AsyncBaseCoreClient):
             cql_lang   = request.query_params.get("filter-lang", "cql2-text")
             if cql_expr:
                 cql        = _parse_cql2(cql_expr, cql_lang)
-                variable   = variable   or cql.get("variable")
-                experiment = experiment or cql.get("experiment")
-                model      = model      or cql.get("model")
+                variable   = variable   or _cql_val(cql, "variable")
+                experiment = experiment or _cql_val(cql, "experiment")
+                model      = model      or _cql_val(cql, "model")
 
         if variable or experiment or model:
             # Narrow cube:variables to only the variables present in filtered items.
@@ -651,7 +777,7 @@ class FesomsClient(AsyncBaseCoreClient):
         item["links"] = self._item_links(base_url, collection_id, item_id)
 
         # Single-file snippet for this item.
-        item = _inject_snippet(item)
+        item = _inject_snippet(item, base_url=base_url)
 
         # Second asset: load ALL timesteps for the same variable from this collection.
         variable = item.get("properties", {}).get("variable", "")
@@ -688,6 +814,8 @@ class FesomsClient(AsyncBaseCoreClient):
         variable: Optional[str] = None
         experiment: Optional[str] = None
         model: Optional[str] = None
+        extra_props: Dict[str, str] = {}
+        _well_known = {"variable", "experiment", "model"}
         if request:
             variable  = request.query_params.get("variable")  or None
             experiment = request.query_params.get("experiment") or None
@@ -696,9 +824,10 @@ class FesomsClient(AsyncBaseCoreClient):
             cql_lang  = request.query_params.get("filter-lang", "cql2-text")
             if cql_expr:
                 cql = _parse_cql2(cql_expr, cql_lang)
-                variable   = variable   or cql.get("variable")
-                experiment = experiment or cql.get("experiment")
-                model      = model      or cql.get("model")
+                variable   = variable   or _cql_val(cql, "variable")
+                experiment = experiment or _cql_val(cql, "experiment")
+                model      = model      or _cql_val(cql, "model")
+                extra_props = {k: v for k, v in cql.items() if k not in _well_known}
 
         items = self.loader.get_items_for_collection(collection_id)
 
@@ -709,6 +838,11 @@ class FesomsClient(AsyncBaseCoreClient):
             items = [i for i in items if i.get("properties", {}).get("experiment") == experiment]
         if model:
             items = [i for i in items if i.get("properties", {}).get("model") == model]
+        if extra_props:
+            items = [
+                i for i in items
+                if all(str(i.get("properties", {}).get(k)) == v for k, v in extra_props.items())
+            ]
         if datetime:
             items = [i for i in items if self.loader._matches_datetime(i, datetime)]
 
@@ -740,7 +874,7 @@ class FesomsClient(AsyncBaseCoreClient):
 
         return {
             "type": "FeatureCollection",
-            "features": [_inject_snippet(i) for i in page],
+            "features": [_inject_snippet(i, base_url=base_url) for i in page],
             "links": self._item_collection_links(
                 base_url, collection_id,
                 offset=offset, limit=limit, total=total_matched,
@@ -763,15 +897,47 @@ class FesomsClient(AsyncBaseCoreClient):
         }
 
     async def post_search(self, search_request: BaseSearchPostRequest, **kwargs) -> Dict:
+        experiment = getattr(search_request, "experiment", None)
+        model      = getattr(search_request, "model", None)
+        variable   = getattr(search_request, "variable", None)
+        extra_props: Dict[str, str] = {}
+        _well_known = {"variable", "experiment", "model"}
+
+        # stac-fastapi populates filter_expr from the POST body 'filter' key.
+        # It may arrive as a raw string (cql2-text) or a dict (cql2-json).
+        raw_filter = getattr(search_request, "filter_expr", None)
+        filter_lang = getattr(search_request, "filter_lang", "cql2-text") or "cql2-text"
+        if raw_filter is None:
+            # Also try the request body directly for cql2-text strings that
+            # the typed model may have dropped.
+            request = kwargs.get("request")
+            if request:
+                try:
+                    body = await request.json()
+                    raw_filter = body.get("filter")
+                    filter_lang = body.get("filter-lang", "cql2-text")
+                except Exception:
+                    pass
+        if raw_filter is not None:
+            if isinstance(raw_filter, str):
+                cql = _parse_cql2_text(raw_filter)
+            else:
+                cql = _parse_cql2_json(str(raw_filter))
+            variable   = variable   or _cql_val(cql, "variable")
+            experiment = experiment or _cql_val(cql, "experiment")
+            model      = model      or _cql_val(cql, "model")
+            extra_props = {k: v for k, v in cql.items() if k not in _well_known}
+
         return await self.get_search(
             collections=search_request.collections,
             ids=search_request.ids,
             bbox=search_request.bbox,
             datetime=search_request.datetime,
             limit=search_request.limit,
-            experiment=getattr(search_request, "experiment", None),
-            model=getattr(search_request, "model", None),
-            variable=getattr(search_request, "variable", None),
+            experiment=experiment,
+            model=model,
+            variable=variable,
+            extra_props=extra_props or None,
             **kwargs,
         )
 
@@ -786,20 +952,25 @@ class FesomsClient(AsyncBaseCoreClient):
         experiment: Optional[str] = None,
         model: Optional[str] = None,
         variable: Optional[str] = None,
+        extra_props: Optional[Dict[str, str]] = None,
         **kwargs,
     ) -> Dict:
         request: Optional[Request] = kwargs.get("request")
         base_url = self._base_url(request)
 
-        # Merge CQL2 filter (from STAC Browser filter UI) into our custom params.
+        # Merge CQL2 filter from GET query params (STAC Browser filter UI).
+        _well_known = {"variable", "experiment", "model"}
         if request:
             cql_expr = request.query_params.get("filter")
             cql_lang = request.query_params.get("filter-lang", "cql2-text")
             if cql_expr:
                 cql = _parse_cql2(cql_expr, cql_lang)
-                variable   = variable   or cql.get("variable")
-                experiment = experiment or cql.get("experiment")
-                model      = model      or cql.get("model")
+                variable   = variable   or _cql_val(cql, "variable")
+                experiment = experiment or _cql_val(cql, "experiment")
+                model      = model      or _cql_val(cql, "model")
+                extra_from_get = {k: v for k, v in cql.items() if k not in _well_known}
+                if extra_from_get:
+                    extra_props = {**(extra_props or {}), **extra_from_get}
 
         items = self.loader.search(
             experiment=experiment,
@@ -809,6 +980,7 @@ class FesomsClient(AsyncBaseCoreClient):
             ids=ids,
             datetime_filter=datetime,
             limit=limit or 10,
+            properties=extra_props or None,
         )
         for item in items:
             col_id = item.get("collection", "")
@@ -818,7 +990,7 @@ class FesomsClient(AsyncBaseCoreClient):
 
         return {
             "type": "FeatureCollection",
-            "features": [_inject_snippet(i) for i in items],
+            "features": [_inject_snippet(i, base_url=base_url) for i in items],
             "links": self._search_links(base_url),
             "numberMatched": len(items),
             "numberReturned": len(items),
@@ -894,7 +1066,8 @@ class FesomsFiltersClient(AsyncBaseFiltersClient):
                     kw for kw in col.get("keywords", [])
                     if kw and kw not in (exp_id, model)
                 ]
-        return _make_queryables(base_url, collection_id or "", variables or None)
+        extra_properties = self.loader.get_all_property_keys(collection_id or "")
+        return _make_queryables(base_url, collection_id or "", variables or None, extra_properties)
 
 
 # ---------------------------------------------------------------------------
