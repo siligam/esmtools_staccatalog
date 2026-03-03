@@ -576,7 +576,7 @@ class CatalogLoader:
                         continue
                     item_dict["collection"] = model_id
                     results.append(item_dict)
-                    if len(results) >= limit:
+                    if limit is not None and len(results) >= limit:
                         return results
         return results
 
@@ -693,6 +693,30 @@ class FesomsClient(AsyncBaseCoreClient):
             {"rel": "self", "href": f"{base_url}/search", "type": "application/geo+json"},
             {"rel": "root", "href": f"{base_url}/",       "type": "application/json"},
         ]
+
+    def _search_pagination_links(
+        self,
+        base_url: str,
+        offset: int = 0,
+        limit: int = 10,
+        total: int = 0,
+        extra_params: str = "",
+    ) -> List[Dict]:
+        """Generate pagination links for search endpoint."""
+        if not base_url:
+            return []
+        base_search = f"{base_url}/search"
+        qs = f"limit={limit}{extra_params}"
+        links = [
+            {"rel": "self",       "href": f"{base_search}?{qs}&token={offset}", "type": "application/geo+json"},
+            {"rel": "root",       "href": f"{base_url}/",                             "type": "application/json"},
+        ]
+        if offset + limit < total:
+            links.append({"rel": "next", "href": f"{base_search}?{qs}&token={offset + limit}", "type": "application/geo+json"})
+        if offset > 0:
+            prev = max(0, offset - limit)
+            links.append({"rel": "prev", "href": f"{base_search}?{qs}&token={prev}", "type": "application/geo+json"})
+        return links
 
     # ------------------------------------------------------------------
     # Required endpoints
@@ -855,6 +879,11 @@ class FesomsClient(AsyncBaseCoreClient):
         # Build the collection-level snippet from ALL matched items (before page slice).
         collection_snippet = _collection_xarray_snippet(items, api_url=base_url, collection_id=collection_id)
 
+        # Parse token from request query parameters for pagination
+        token = None
+        if request:
+            token = request.query_params.get("token") or None
+        
         offset = 0
         if token:
             try:
@@ -868,13 +897,31 @@ class FesomsClient(AsyncBaseCoreClient):
             item["links"] = self._item_links(base_url, collection_id, item["id"])
 
         # Build extra query-string params to preserve filters in next/prev links.
-        extra_qs = ""
+        from urllib.parse import urlencode, quote_plus
+        
+        extra_params = {}
         if variable:
-            extra_qs += f"&variable={variable}"
+            extra_params["variable"] = variable
         if experiment:
-            extra_qs += f"&experiment={experiment}"
+            extra_params["experiment"] = experiment
         if model:
-            extra_qs += f"&model={model}"
+            extra_params["model"] = model
+        if datetime:
+            extra_params["datetime"] = datetime
+            
+        # Add CQL2 filter parameters if present
+        if request:
+            cql_expr = request.query_params.get("filter")
+            cql_lang = request.query_params.get("filter-lang", "cql2-text")
+            if cql_expr:
+                extra_params["filter"] = cql_expr
+                extra_params["filter-lang"] = cql_lang
+        
+        # Convert to properly encoded query string
+        extra_qs = ""
+        if extra_params:
+            encoded_params = urlencode(extra_params, doseq=True)
+            extra_qs = f"&{encoded_params}"
 
         return {
             "type": "FeatureCollection",
@@ -953,6 +1000,7 @@ class FesomsClient(AsyncBaseCoreClient):
         intersects: Optional[Any] = None,
         datetime: Optional[str] = None,
         limit: Optional[int] = 10,
+        token: Optional[str] = None,
         experiment: Optional[str] = None,
         model: Optional[str] = None,
         variable: Optional[str] = None,
@@ -976,29 +1024,79 @@ class FesomsClient(AsyncBaseCoreClient):
                 if extra_from_get:
                     extra_props = {**(extra_props or {}), **extra_from_get}
 
-        items = self.loader.search(
+        # Parse token from request query parameters for pagination
+        if request:
+            token = request.query_params.get("token") or None
+        
+        offset = 0
+        if token:
+            try:
+                offset = int(token)
+            except ValueError:
+                pass
+
+        # Get ALL matching items to get total count, then apply pagination
+        all_items = self.loader.search(
             experiment=experiment,
             model=model,
             variable=variable,
             collections=collections,
             ids=ids,
             datetime_filter=datetime,
-            limit=limit or 10,
+            limit=None,  # Get all items for total count
             properties=extra_props or None,
         )
-        for item in items:
+        
+        total_matched = len(all_items)
+        page = all_items[offset: offset + (limit or 10)]
+        
+        for item in page:
             col_id = item.get("collection", "")
             item["links"] = self._item_links(base_url, col_id, item["id"])
 
-        collection_snippet = _collection_xarray_snippet(items, api_url=base_url, collection_id="")
+        # Build extra query-string params to preserve filters in next/prev links.
+        from urllib.parse import urlencode
+        
+        extra_params = {}
+        if variable:
+            extra_params["variable"] = variable
+        if experiment:
+            extra_params["experiment"] = experiment
+        if model:
+            extra_params["model"] = model
+        if datetime:
+            extra_params["datetime"] = datetime
+        if collections:
+            extra_params["collections"] = collections
+        if ids:
+            extra_params["ids"] = ids
+            
+        # Add CQL2 filter parameters if present
+        if request:
+            cql_expr = request.query_params.get("filter")
+            cql_lang = request.query_params.get("filter-lang", "cql2-text")
+            if cql_expr:
+                extra_params["filter"] = cql_expr
+                extra_params["filter-lang"] = cql_lang
+        
+        # Convert to properly encoded query string
+        extra_qs = ""
+        if extra_params:
+            encoded_params = urlencode(extra_params, doseq=True)
+            extra_qs = f"&{encoded_params}"
+
+        collection_snippet = _collection_xarray_snippet(page, api_url=base_url, collection_id="")
 
         return {
             "type": "FeatureCollection",
-            "features": [_inject_snippet(i, base_url=base_url) for i in items],
-            "links": self._search_links(base_url),
-            "numberMatched": len(items),
-            "numberReturned": len(items),
-            # Non-standard extension field: ready-to-run snippet for the full selection.
+            "features": [_inject_snippet(i, base_url=base_url) for i in page],
+            "links": self._search_pagination_links(
+                base_url, offset=offset, limit=limit or 10, total=total_matched,
+                extra_params=extra_qs,
+            ),
+            "numberMatched": total_matched,
+            "numberReturned": len(page),
+            # Non-standard extension field: ready-to-run snippet for the current page.
             "fesom:code_snippet": collection_snippet,
         }
 
@@ -1020,6 +1118,10 @@ class FesomsearchGetRequest(BaseSearchGetRequest):
     variable: Annotated[
         Optional[str],
         Query(description="Filter by variable name (e.g. ssh)"),
+    ] = attr.ib(default=None)
+    token: Annotated[
+        Optional[str],
+        Query(description="Pagination token (offset)"),
     ] = attr.ib(default=None)
 
 
