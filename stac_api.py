@@ -242,7 +242,11 @@ def _parse_cql2_text(expr: str) -> Dict[str, Any]:
 
 
 def _parse_cql2_json(expr: Any) -> Dict[str, Any]:
-    """Parse CQL2-JSON equality and comparison expressions → {prop: (op, value_str)}."""
+    """Parse CQL2-JSON equality and comparison expressions → {prop: (op, value_str) or list of values for OR}.
+    
+    For OR conditions on the same property, returns a list of values.
+    For example: experiment='a' OR experiment='b' → {'experiment': ['a', 'b']}
+    """
     result: Dict[str, Any] = {}
     try:
         data = _json.loads(expr) if isinstance(expr, str) else expr
@@ -258,33 +262,68 @@ def _parse_cql2_json(expr: Any) -> Dict[str, Any]:
         "gte": ">=", ">=": ">="
     }
 
-    def _walk(node: Any) -> None:
+    def _walk(node: Any, in_or: bool = False) -> Dict[str, Any]:
+        """Walk the CQL2 tree. Returns dict of filters found in this subtree."""
+        local_result: Dict[str, Any] = {}
         if not isinstance(node, dict):
-            return
+            return local_result
+        
         op = str(node.get("op", "")).lower()
         args = node.get("args", [])
+        
         if op in _cql2_op_map and len(args) == 2:
             prop_node, val_node = args
             if isinstance(prop_node, dict) and "property" in prop_node:
                 prop = prop_node["property"]
                 key = prop.lower() if prop.lower() in ("variable", "experiment", "model", "component") else prop
-                result[key] = (_cql2_op_map[op], str(val_node))
-        elif op in ("and", "or") and isinstance(args, list):
+                local_result[key] = (_cql2_op_map[op], str(val_node))
+        elif op == "or" and isinstance(args, list):
+            # Collect all filters from OR branches
+            or_filters: Dict[str, list] = {}
             for arg in args:
-                _walk(arg)
+                branch_result = _walk(arg, in_or=True)
+                for k, v in branch_result.items():
+                    if k not in or_filters:
+                        or_filters[k] = []
+                    # Extract just the value from (op, value) tuple for OR conditions
+                    if isinstance(v, tuple) and v[0] == "=":
+                        or_filters[k].append(v[1])
+                    else:
+                        or_filters[k].append(v)
+            # Merge OR filters into result as lists
+            for k, values in or_filters.items():
+                if len(values) > 1:
+                    local_result[k] = values  # Store as list for OR
+                elif len(values) == 1:
+                    local_result[k] = values[0]
+        elif op == "and" and isinstance(args, list):
+            for arg in args:
+                branch_result = _walk(arg, in_or=False)
+                for k, v in branch_result.items():
+                    if k in local_result:
+                        # If same key appears multiple times in AND, keep the last one
+                        # (this shouldn't normally happen in well-formed queries)
+                        pass
+                    local_result[k] = v
+        
+        return local_result
 
-    _walk(data)
+    result = _walk(data)
     return result
 
 
-def _cql_val(cql: Dict[str, Any], key: str) -> Optional[str]:
-    """Extract a plain string value from a CQL2 parsed dict for a given key.
+def _cql_val(cql: Dict[str, Any], key: str) -> Optional[Any]:
+    """Extract a value from a CQL2 parsed dict for a given key.
 
-    The parsers now return (op, value) tuples. For well-known equality fields
-    (variable, experiment, model) we only want the value part.
+    The parsers now return (op, value) tuples, lists for OR conditions, or plain values.
+    For well-known equality fields (variable, experiment, model) we want the value part.
+    Returns None if the value is a list (OR condition) - those should stay in extra_props.
     """
     v = cql.get(key)
     if v is None:
+        return None
+    if isinstance(v, list):
+        # OR condition - don't extract, let it stay in extra_props
         return None
     if isinstance(v, tuple):
         return v[1]  # (op, value) → value
@@ -628,29 +667,38 @@ class CatalogLoader:
                             if pv is None:
                                 match = False
                                 break
-                            # filter_val is either a (op, value_str) tuple or a plain string.
-                            op, v = filter_val if isinstance(filter_val, tuple) else ("=", filter_val)
-                            # Try numeric comparison first, fall back to string.
-                            try:
-                                pv_cmp: Any = float(pv)
-                                v_cmp: Any  = float(v)
-                            except (TypeError, ValueError):
-                                pv_cmp = str(pv)
-                                v_cmp  = str(v)
-                            if op == "=":
-                                match = pv_cmp == v_cmp
-                            elif op in ("!=", "<>"):
-                                match = pv_cmp != v_cmp
-                            elif op == "<":
-                                match = pv_cmp < v_cmp
-                            elif op == "<=":
-                                match = pv_cmp <= v_cmp
-                            elif op == ">":
-                                match = pv_cmp > v_cmp
-                            elif op == ">=":
-                                match = pv_cmp >= v_cmp
+                            
+                            # filter_val can be:
+                            # - a (op, value_str) tuple for single comparison
+                            # - a list of values for OR conditions
+                            # - a plain string for equality
+                            if isinstance(filter_val, list):
+                                # OR condition: match if pv equals ANY value in the list
+                                match = str(pv) in [str(v) for v in filter_val]
                             else:
-                                match = pv_cmp == v_cmp
+                                # Single comparison
+                                op, v = filter_val if isinstance(filter_val, tuple) else ("=", filter_val)
+                                # Try numeric comparison first, fall back to string.
+                                try:
+                                    pv_cmp: Any = float(pv)
+                                    v_cmp: Any  = float(v)
+                                except (TypeError, ValueError):
+                                    pv_cmp = str(pv)
+                                    v_cmp  = str(v)
+                                if op == "=":
+                                    match = pv_cmp == v_cmp
+                                elif op in ("!=", "<>"):
+                                    match = pv_cmp != v_cmp
+                                elif op == "<":
+                                    match = pv_cmp < v_cmp
+                                elif op == "<=":
+                                    match = pv_cmp <= v_cmp
+                                elif op == ">":
+                                    match = pv_cmp > v_cmp
+                                elif op == ">=":
+                                    match = pv_cmp >= v_cmp
+                                else:
+                                    match = pv_cmp == v_cmp
                             if not match:
                                 break
                         if not match:
@@ -847,19 +895,21 @@ class FesomsClient(AsyncBaseCoreClient):
                 experiment = experiment or _cql_val(cql, "experiment")
                 model      = model      or _cql_val(cql, "model")
 
+        # Always generate xarray snippet; narrow when filters are active.
+        all_items = self.loader.get_items_for_collection(collection_id)
+        snippet_items = all_items
         if variable or experiment or model:
-            # Narrow cube:variables to only the variables present in filtered items.
-            all_items = self.loader.get_items_for_collection(collection_id)
             if variable:
-                all_items = [i for i in all_items if i.get("properties", {}).get("variable") == variable]
+                snippet_items = [i for i in snippet_items if i.get("properties", {}).get("variable") == variable]
             if experiment:
-                all_items = [i for i in all_items if i.get("properties", {}).get("experiment") == experiment]
+                snippet_items = [i for i in snippet_items if i.get("properties", {}).get("experiment") == experiment]
             if model:
-                all_items = [i for i in all_items if i.get("properties", {}).get("model") == model]
+                snippet_items = [i for i in snippet_items if i.get("properties", {}).get("model") == model]
 
+            # Narrow cube:variables to only the variables present in filtered items.
             filtered_vars = sorted({
                 i.get("properties", {}).get("variable", "")
-                for i in all_items
+                for i in snippet_items
                 if i.get("properties", {}).get("variable")
             })
             if filtered_vars:
@@ -867,16 +917,18 @@ class FesomsClient(AsyncBaseCoreClient):
                     v: {"type": "data", "dimensions": ["time", "latitude", "longitude"]}
                     for v in filtered_vars
                 }
+            snippet_title = "Open filtered selection with xarray / intake-xarray"
+        else:
+            snippet_title = "Open collection with xarray / intake-xarray"
 
-            # Inject xarray/intake snippet as a collection asset.
-            snippet = _collection_xarray_snippet(all_items, api_url=base_url, collection_id=collection_id)
-            col.setdefault("assets", {})["xarray_snippet"] = {
-                "href": "inline",
-                "type": "text/x-python",
-                "title": "Open filtered selection with xarray / intake-xarray",
-                "roles": ["metadata"],
-                "description": snippet,
-            }
+        snippet = _collection_xarray_snippet(snippet_items, api_url=base_url, collection_id=collection_id)
+        col.setdefault("assets", {})["xarray_snippet"] = {
+            "href": "inline",
+            "type": "text/x-python",
+            "title": snippet_title,
+            "roles": ["metadata"],
+            "description": snippet,
+        }
 
         return col
 
@@ -1067,11 +1119,21 @@ class FesomsClient(AsyncBaseCoreClient):
                 cql = _parse_cql2_text(raw_filter)
             else:
                 cql = _parse_cql2_json(raw_filter)
+            # Extract simple values for well-known fields
+            # If a field has OR condition (list), it stays in extra_props
             variable   = variable   or _cql_val(cql, "variable")
             experiment = experiment or _cql_val(cql, "experiment")
             model      = model      or _cql_val(cql, "model")
             component  = component  or _cql_val(cql, "component")
-            extra_props = {k: v for k, v in cql.items() if k not in _well_known}
+            # Include well-known fields in extra_props if they have OR conditions or complex operators
+            extra_props = {}
+            for k, v in cql.items():
+                if k in _well_known:
+                    # Only add to extra_props if it's a list (OR) or non-equality operator
+                    if isinstance(v, list) or (isinstance(v, tuple) and v[0] != "="):
+                        extra_props[k] = v
+                else:
+                    extra_props[k] = v
 
         return await self.get_search(
             collections=search_request.collections,
