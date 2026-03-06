@@ -450,15 +450,16 @@ class CatalogLoader:
     # ------------------------------------------------------------------
 
     def _collection_keywords(self, exp_id: str, col: pystac.Collection) -> List[str]:
-        """Build keyword list from experiment name, model name, and variable names in items."""
+        """Build high-level keyword list (not individual variables)."""
         model_name = col.extra_fields.get("model", "")
+        model_type = col.extra_fields.get("model_type", "")
+        scenario = col.extra_fields.get("scenario", "")
+        resolution = col.extra_fields.get("resolution", "")
+        
         keywords = [exp_id]
-        if model_name and model_name not in keywords:
-            keywords.append(model_name)
-        for item in col.get_all_items():
-            var = (item.properties or {}).get("variable")
-            if var and var not in keywords:
-                keywords.append(var)
+        for kw in [model_name, model_type, scenario, resolution]:
+            if kw and kw not in keywords:
+                keywords.append(kw)
         return keywords
 
     def get_all_collections(self) -> List[Dict[str, Any]]:
@@ -1274,12 +1275,10 @@ class FesomsFiltersClient(AsyncBaseFiltersClient):
         if collection_id:
             col = self.loader.get_collection(collection_id)
             if col:
-                exp_id = col.get("experiment_id", "")
-                model  = col.get("model", "")
-                variables = [
-                    kw for kw in col.get("keywords", [])
-                    if kw and kw not in (exp_id, model)
-                ]
+                # Get variables from cube:variables instead of keywords
+                cube_vars = col.get("cube:variables", {})
+                if cube_vars:
+                    variables = sorted(list(cube_vars.keys()))
         extra_properties = self.loader.get_all_property_keys(collection_id or "")
         unique_values = self.loader.get_unique_property_values(collection_id or "")
         return _make_queryables(base_url, collection_id or "", variables or None, extra_properties, unique_values)

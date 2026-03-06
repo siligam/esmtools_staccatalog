@@ -24,13 +24,13 @@
       "rel": "child",
       "href": "./fesom/collection.json",
       "type": "application/json",
-      "title": "fesom"
+      "title": "sylvester-010-fesom"
     },
     {
       "rel": "child",
       "href": "./oasis3mct/collection.json",
       "type": "application/json",
-      "title": "oasis3mct"
+      "title": "sylvester-010-oasis3mct"
     }
   ]
 }

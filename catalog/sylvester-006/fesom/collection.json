@@ -97,19 +97,9 @@
   "keywords": [
     "sylvester-006",
     "fesom",
-    "MLD1",
-    "MLD2",
-    "a_ice",
-    "m_ice",
-    "m_snow",
-    "momix_length",
-    "ssh",
-    "sss",
-    "sst",
-    "tx_sur",
-    "ty_sur",
-    "uice",
-    "vice"
+    "ocean",
+    "PI-CTRL",
+    "T63_CORE2"
   ],
   "title": "sylvester-006-fesom",
   "extent": {

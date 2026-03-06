@@ -24,13 +24,13 @@
       "rel": "child",
       "href": "./fesom/collection.json",
       "type": "application/json",
-      "title": "fesom"
+      "title": "basic-001-fesom"
     },
     {
       "rel": "child",
       "href": "./oasis3mct/collection.json",
       "type": "application/json",
-      "title": "oasis3mct"
+      "title": "basic-001-oasis3mct"
     }
   ]
 }

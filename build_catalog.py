@@ -402,12 +402,16 @@ def build_catalog(experiments_json_path, output_dir):
                 temporal=pystac.TemporalExtent(intervals=[[initial_dt, final_dt]]),
             )
 
-            # Collect variable names from the model files for keyword population
-            variable_names = sorted({
-                Path(fp).stem.split(".")[0]
-                for fp in model_files
-            })
-            keywords = [exp_name, model_name] + variable_names
+            # Build high-level keywords (not individual variables - those are in cube:variables)
+            keywords = [
+                exp_name,
+                model_name,
+                meta.get("type", ""),  # e.g., "ocean", "atmosphere"
+                exp_meta.get("scenario", ""),  # e.g., "historical", "piControl"
+                exp_meta.get("resolution", ""),  # e.g., "CORE2"
+            ]
+            # Remove empty strings
+            keywords = [k for k in keywords if k]
 
             collection = pystac.Collection(
                 id=make_short_id(f"{exp_name}-{model_name}"),
