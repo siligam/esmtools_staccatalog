@@ -25,12 +25,14 @@ import re
 from pathlib import Path
 from typing import Annotated, Any, Dict, List, Optional, Tuple
 
+import black as _black
+
 import attr
 import pystac
 import uvicorn
 from upath import UPath
 from fastapi import Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -237,7 +239,18 @@ def _parse_cql2_text(expr: str) -> Dict[str, Any]:
             continue
         # Lowercase only well-known fields; preserve case for FESOM_ and other props.
         key = prop.lower() if prop.lower() in ("variable", "experiment", "model", "component") else prop
-        result[key] = (op, value)
+        if key in result:
+            # Same property appears more than once (OR condition).
+            # Promote to a list of values so extra_props can match any of them.
+            existing = result[key]
+            new_val = value if op == "=" else (op, value)
+            if isinstance(existing, list):
+                existing.append(new_val)
+            else:
+                old_val = existing[1] if isinstance(existing, tuple) and existing[0] == "=" else existing
+                result[key] = [old_val, new_val]
+        else:
+            result[key] = (op, value)
     return result
 
 
@@ -990,12 +1003,25 @@ class FesomsClient(AsyncBaseCoreClient):
             cql_expr  = request.query_params.get("filter")
             cql_lang  = request.query_params.get("filter-lang", "cql2-text")
             if cql_expr:
+                # Auto-detect JSON if filter starts with { or [
+                if cql_lang == "cql2-text" and isinstance(cql_expr, str) and cql_expr.strip().startswith(("{", "[")):
+                    cql_lang = "cql2-json"
                 cql = _parse_cql2(cql_expr, cql_lang)
+                # Extract simple values for well-known fields
+                # If a field has OR condition (list), it stays in extra_props
                 variable   = variable   or _cql_val(cql, "variable")
                 experiment = experiment or _cql_val(cql, "experiment")
                 model      = model      or _cql_val(cql, "model")
                 component  = component  or _cql_val(cql, "component")
-                extra_props = {k: v for k, v in cql.items() if k not in _well_known}
+                # Include well-known fields in extra_props if they have OR conditions or complex operators
+                extra_props = {}
+                for k, v in cql.items():
+                    if k in _well_known:
+                        # Only add to extra_props if it's a list (OR) or non-equality operator
+                        if isinstance(v, list) or (isinstance(v, tuple) and v[0] != "="):
+                            extra_props[k] = v
+                    else:
+                        extra_props[k] = v
 
         items = self.loader.get_items_for_collection(collection_id)
 
@@ -1009,10 +1035,53 @@ class FesomsClient(AsyncBaseCoreClient):
         if component:
             items = [i for i in items if i.get("properties", {}).get("component") == component]
         if extra_props:
-            items = [
-                i for i in items
-                if all(str(i.get("properties", {}).get(k)) == v for k, v in extra_props.items())
-            ]
+            # Handle OR conditions (list values) and comparison operators
+            filtered_items = []
+            for item in items:
+                props = item.get("properties", {})
+                match = True
+                for k, filter_val in extra_props.items():
+                    pv = props.get(k)
+                    if pv is None:
+                        match = False
+                        break
+                    
+                    # filter_val can be:
+                    # - a (op, value_str) tuple for single comparison
+                    # - a list of values for OR conditions
+                    # - a plain string for equality
+                    if isinstance(filter_val, list):
+                        # OR condition: match if pv equals ANY value in the list
+                        match = str(pv) in [str(v) for v in filter_val]
+                    else:
+                        # Single comparison
+                        op, v = filter_val if isinstance(filter_val, tuple) else ("=", filter_val)
+                        # Try numeric comparison first, fall back to string.
+                        try:
+                            pv_cmp = float(pv)
+                            v_cmp = float(v)
+                        except (TypeError, ValueError):
+                            pv_cmp = str(pv)
+                            v_cmp = str(v)
+                        if op == "=":
+                            match = pv_cmp == v_cmp
+                        elif op in ("!=", "<>"):
+                            match = pv_cmp != v_cmp
+                        elif op == "<":
+                            match = pv_cmp < v_cmp
+                        elif op == "<=":
+                            match = pv_cmp <= v_cmp
+                        elif op == ">":
+                            match = pv_cmp > v_cmp
+                        elif op == ">=":
+                            match = pv_cmp >= v_cmp
+                        else:
+                            match = pv_cmp == v_cmp
+                    if not match:
+                        break
+                if match:
+                    filtered_items.append(item)
+            items = filtered_items
         if datetime:
             items = [i for i in items if self.loader._matches_datetime(i, datetime)]
 
@@ -1662,6 +1731,21 @@ async def catalog_children(catalog_id: str, request: Request):
             {"rel": "parent", "href": f"{base_url}/catalogs/{catalog_id}",          "type": "application/json"},
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Code formatter
+# ---------------------------------------------------------------------------
+
+@app.post("/format", tags=["Utilities"])
+async def format_python(request: Request) -> PlainTextResponse:
+    """Accept raw Python code in the request body and return it formatted with black."""
+    code = (await request.body()).decode("utf-8")
+    try:
+        formatted = _black.format_str(code, mode=_black.Mode())
+    except Exception:
+        formatted = code  # Return original if black cannot parse it
+    return PlainTextResponse(formatted)
 
 
 # ---------------------------------------------------------------------------
