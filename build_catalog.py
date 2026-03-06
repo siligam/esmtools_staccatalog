@@ -411,7 +411,7 @@ def build_catalog(experiments_json_path, output_dir):
 
             collection = pystac.Collection(
                 id=make_short_id(f"{exp_name}-{model_name}"),
-                title=model_name,
+                title=f"{exp_name}-{model_name}",
                 description=(
                     md.get("Description") or
                     f"{model_name} output for experiment {exp_name}"

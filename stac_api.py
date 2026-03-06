@@ -65,11 +65,8 @@ def _xarray_snippet(
     model: str = "",
     item_url: str = "",
 ) -> str:
-    """Return a fenced Python snippet that opens a single item with intake-stac.
-
-    intake-stac is the primary method; xarray direct-open is the alternative.
-    """
-    code: List[str] = ["import intake"]
+    """Return a fenced Python snippet that opens a single item with xarray directly."""
+    code: List[str] = ["import xarray as xr", "from upath import UPath"]
     if experiment:
         code.append(f"# experiment : {experiment!r}")
     if model:
@@ -78,38 +75,35 @@ def _xarray_snippet(
         code.append(f"# variable   : {variable!r}")
     code.append("")
 
-    if item_url:
+    if item_url and len(hrefs) == 1:
+        # Use the direct file path approach which works with netcdf4
+        path = hrefs[0]
         code += [
-            f'item = intake.open_stac_item("{item_url}")',
-            'ds = item["data"].to_dask()',
+            f'# Load the dataset directly with netcdf4 engine',
+            f'ds = xr.open_dataset(UPath(r"{path}"), engine="netcdf4", decode_times=True)',
+        ]
+        code += [
+            "",
+            "# --- alternatively with intake-stac ---",
+            "# import intake",
+            f'# item = intake.open_stac_item("{item_url}")',
+            '# ds = item["data"].to_dask()',
         ]
     elif len(hrefs) == 1:
         path = hrefs[0]
         code += [
-            f'item = intake.open_stac_item_collection([r"{path}"])',
-            'ds = item["data"].to_dask()',
+            f'# Load the dataset directly with netcdf4 engine',
+            f'ds = xr.open_dataset(UPath(r"{path}"), engine="netcdf4", decode_times=True)',
         ]
     else:
         code += [
-            "# load individual assets by href",
-            "from upath import UPath",
-            "import xarray as xr",
+            "# load multiple files by href",
             "paths = [",
         ]
         for h in hrefs:
             code.append(f'    UPath(r"{h}"),')
         code.append("]")
         code.append('ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)')
-
-    if item_url or len(hrefs) == 1:
-        path = hrefs[0] if hrefs else ""
-        code += [
-            "",
-            "# --- alternatively with xarray directly ---",
-            "# from upath import UPath",
-            "# import xarray as xr",
-            f'# ds = xr.open_dataset(UPath(r"{path}"), engine="netcdf4", decode_times=True)',
-        ]
 
     inner = "\n".join(code)
     return f"```python\n{inner}\n```"
@@ -120,10 +114,7 @@ def _collection_xarray_snippet(
     api_url: str = "http://localhost:9092",
     collection_id: str = "",
 ) -> str:
-    """Return a fenced Python snippet that opens a collection via intake-stac.
-
-    intake-stac is the primary method; xarray/pystac-client is the alternative.
-    """
+    """Return a fenced Python snippet that opens a collection via pystac-client."""
     variables: List[str] = []
     experiment = ""
     model = ""
@@ -152,43 +143,32 @@ def _collection_xarray_snippet(
         filter_parts.append(f"experiment = '{experiment}'")
     filter_expr = " AND ".join(filter_parts) if filter_parts else ""
 
-    code: List[str] = ["import intake"]
-    if experiment:
-        code.append(f"# experiment : {experiment!r}")
-    if model:
-        code.append(f"# model      : {model!r}")
-    if variables:
-        code.append(f"# variable(s): {variable_str!r}")
-    code += [
-        "",
-        f'collection = intake.open_stac_collection("{api_url}/collections/{col_id}")',
-        "entries = list(collection)",
-        "import xarray as xr",
+    code: List[str] = [
+        "import pystac_client",
+        "import xarray as xr", 
         "from upath import UPath",
-        "paths = [UPath(collection[entry].urlpath) for entry in entries]",
-        'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
-    ]
-    code += [
         "",
-        "# --- alternatively with pystac-client + xarray ---",
-        "# import pystac_client",
-        "# import xarray as xr",
-        "# from upath import UPath",
-        f'# catalog = pystac_client.Client.open("{api_url}")',
-        "# results = catalog.search(",
-        f'#     collections=["{col_id}"],',
+        f'# Connect to the STAC API',
+        f'catalog = pystac_client.Client.open("{api_url}")',
+        "",
+        "# Search for items in this collection",
+        f"results = catalog.search(collections=[\"{col_id}\"]",
     ]
+    
     if filter_expr:
-        code += [
-            f'#     filter="{filter_expr}",',
-            '#     filter_lang="cql2-text",',
-        ]
-    code += [
-        "#     max_items=None,",
-        "# )",
-        "# paths = [UPath(item.assets[\"data\"].href) for item in results.items()]",
-        '# ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
-    ]
+        code.extend([
+            f'                           filter="{filter_expr}",',
+            "                           filter_lang=\"cql2-text\",",
+        ])
+    
+    code.extend([
+        "                           max_items=None,",
+        ")",
+        "",
+        "# Load all matching datasets",
+        "paths = [UPath(item.assets[\"data\"].href) for item in results.items()]",
+        'ds = xr.open_mfdataset(paths, engine="netcdf4", combine="by_coords", decode_times=True)',
+    ])
 
     inner = "\n".join(code)
     return f"```python\n{inner}\n```"
@@ -256,7 +236,7 @@ def _parse_cql2_text(expr: str) -> Dict[str, Any]:
         if prop.upper() in ("AND", "OR", "NOT"):
             continue
         # Lowercase only well-known fields; preserve case for FESOM_ and other props.
-        key = prop.lower() if prop.lower() in ("variable", "experiment", "model") else prop
+        key = prop.lower() if prop.lower() in ("variable", "experiment", "model", "component") else prop
         result[key] = (op, value)
     return result
 
@@ -269,7 +249,14 @@ def _parse_cql2_json(expr: Any) -> Dict[str, Any]:
     except Exception:
         return result
 
-    _cql2_op_map = {"eq": "=", "lt": "<", "lte": "<=", "gt": ">", "gte": ">=", "=": "="}
+    _cql2_op_map = {
+        "eq": "=", "=": "=",
+        "neq": "!=", "!=": "!=", "<>": "!=",
+        "lt": "<", "<": "<",
+        "lte": "<=", "<=": "<=",
+        "gt": ">", ">": ">",
+        "gte": ">=", ">=": ">="
+    }
 
     def _walk(node: Any) -> None:
         if not isinstance(node, dict):
@@ -280,7 +267,7 @@ def _parse_cql2_json(expr: Any) -> Dict[str, Any]:
             prop_node, val_node = args
             if isinstance(prop_node, dict) and "property" in prop_node:
                 prop = prop_node["property"]
-                key = prop.lower() if prop.lower() in ("variable", "experiment", "model") else prop
+                key = prop.lower() if prop.lower() in ("variable", "experiment", "model", "component") else prop
                 result[key] = (_cql2_op_map[op], str(val_node))
         elif op in ("and", "or") and isinstance(args, list):
             for arg in args:
@@ -335,11 +322,13 @@ def _make_queryables(
     collection_id: str = "",
     variables: Optional[List[str]] = None,
     extra_properties: Optional[Dict[str, Any]] = None,
+    unique_values: Optional[Dict[str, List[str]]] = None,
 ) -> Dict[str, Any]:
     """Build the OGC queryables JSON Schema document.
 
     extra_properties maps property name → a representative sample value used
     to infer the JSON Schema type.  Every key becomes a queryable field.
+    unique_values maps property name → list of unique values for enum dropdowns.
     """
     q_id = (
         f"{base_url}/collections/{collection_id}/queryables"
@@ -348,6 +337,8 @@ def _make_queryables(
     )
     title = f"Queryables – {collection_id}" if collection_id else "FESOM STAC Queryables"
 
+    unique_vals = unique_values or {}
+
     variable_schema: Dict[str, Any] = {
         "title": "Variable",
         "description": "FESOM output variable (e.g. ssh, sst, MLD1)",
@@ -355,6 +346,32 @@ def _make_queryables(
     }
     if variables:
         variable_schema["enum"] = sorted(variables)
+    elif "variable" in unique_vals:
+        variable_schema["enum"] = unique_vals["variable"]
+
+    experiment_schema: Dict[str, Any] = {
+        "title": "Experiment",
+        "description": "Experiment name (e.g. basic-001, garfield-001)",
+        "type": "string",
+    }
+    if "experiment" in unique_vals:
+        experiment_schema["enum"] = unique_vals["experiment"]
+
+    model_schema: Dict[str, Any] = {
+        "title": "Model",
+        "description": "Model component (e.g. fesom)",
+        "type": "string",
+    }
+    if "model" in unique_vals:
+        model_schema["enum"] = unique_vals["model"]
+
+    component_schema: Dict[str, Any] = {
+        "title": "Component",
+        "description": "Model component name (e.g. fesom)",
+        "type": "string",
+    }
+    if "component" in unique_vals:
+        component_schema["enum"] = unique_vals["component"]
 
     # Fixed well-known queryables.
     props: Dict[str, Any] = {
@@ -366,16 +383,9 @@ def _make_queryables(
             "format": "date-time",
         },
         "variable": variable_schema,
-        "experiment": {
-            "title": "Experiment",
-            "description": "Experiment name (e.g. basic-001, garfield-001)",
-            "type": "string",
-        },
-        "model": {
-            "title": "Model",
-            "description": "Model component (e.g. fesom)",
-            "type": "string",
-        },
+        "experiment": experiment_schema,
+        "model": model_schema,
+        "component": component_schema,
     }
 
     # Dynamically add every other item property.
@@ -384,10 +394,14 @@ def _make_queryables(
     for key, sample_val in sorted((extra_properties or {}).items()):
         if key in props or key in _skip:
             continue
-        props[key] = {
+        prop_schema: Dict[str, Any] = {
             "title": key,
             "type": _prop_json_type(sample_val),
         }
+        # Add enum if we have unique values for this property
+        if key in unique_vals and _prop_json_type(sample_val) == "string":
+            prop_schema["enum"] = unique_vals[key]
+        props[key] = prop_schema
 
     return {
         "$schema": "https://json-schema.org/draft/2019-09/schema",
@@ -496,21 +510,88 @@ class CatalogLoader:
                             sample[k] = v
         return sample
 
+    def get_unique_property_values(self, collection_id: str = "") -> Dict[str, List[str]]:
+        """Return a dict of property_name -> list of unique values across all items.
+
+        Used to populate enum arrays in queryables for dropdown menus.
+        Only collects values for string-type properties.
+        """
+        values: Dict[str, set] = {}
+        for exp_id, models in self.model_collections.items():
+            for model_id, col in models.items():
+                if collection_id and model_id != collection_id:
+                    continue
+                # Add experiment and model from collection metadata
+                if "experiment" not in values:
+                    values["experiment"] = set()
+                values["experiment"].add(exp_id)
+                
+                component = col.extra_fields.get("model", "")
+                if component:
+                    if "model" not in values:
+                        values["model"] = set()
+                    if "component" not in values:
+                        values["component"] = set()
+                    values["model"].add(component)
+                    values["component"].add(component)
+                
+                for item in col.get_all_items():
+                    for k, v in (item.properties or {}).items():
+                        if v is None or isinstance(v, (list, dict, bool)):
+                            continue
+                        # Only collect string values for enum
+                        if isinstance(v, str):
+                            if k not in values:
+                                values[k] = set()
+                            values[k].add(v)
+        
+        # Convert sets to sorted lists
+        return {k: sorted(list(v)) for k, v in values.items()}
+
+    def _inject_exp_component(
+        self, d: Dict[str, Any], exp_id: str, component: str
+    ) -> Dict[str, Any]:
+        """Ensure experiment and component are present in item properties.
+
+        Also injects them into ``properties.keywords`` so STAC Browser renders
+        them as keyword badges on item cards (requires showKeywordsInItemCards).
+        """
+        props = d.setdefault("properties", {})
+        if not props.get("experiment"):
+            props["experiment"] = exp_id
+        if not props.get("component"):
+            props["component"] = component
+        # Inject into keywords so STAC Browser shows them as visible badges.
+        keywords: List[str] = list(props.get("keywords") or [])
+        for tag in [exp_id, component]:
+            if tag and tag not in keywords:
+                keywords.append(tag)
+        props["keywords"] = keywords
+        return d
+
     def get_items_for_collection(self, collection_id: str) -> List[Dict[str, Any]]:
         found = self._find_collection(collection_id)
         if not found:
             return []
-        _, col = found
-        return [item.to_dict(include_self_link=False) for item in col.get_all_items()]
+        exp_id, col = found
+        component = col.extra_fields.get("model", "")
+        return [
+            self._inject_exp_component(
+                item.to_dict(include_self_link=False), exp_id, component
+            )
+            for item in col.get_all_items()
+        ]
 
     def get_item(self, collection_id: str, item_id: str) -> Optional[Dict[str, Any]]:
         found = self._find_collection(collection_id)
         if not found:
             return None
-        _, col = found
+        exp_id, col = found
+        component = col.extra_fields.get("model", "")
         for item in col.get_all_items():
             if item.id == item_id:
-                return item.to_dict(include_self_link=False)
+                d = item.to_dict(include_self_link=False)
+                return self._inject_exp_component(d, exp_id, component)
         return None
 
     def search(
@@ -557,6 +638,8 @@ class CatalogLoader:
                                 v_cmp  = str(v)
                             if op == "=":
                                 match = pv_cmp == v_cmp
+                            elif op in ("!=", "<>"):
+                                match = pv_cmp != v_cmp
                             elif op == "<":
                                 match = pv_cmp < v_cmp
                             elif op == "<=":
@@ -574,6 +657,7 @@ class CatalogLoader:
                     item_dict = item.to_dict(include_self_link=False)
                     if datetime_filter and not self._matches_datetime(item_dict, datetime_filter):
                         continue
+                    self._inject_exp_component(item_dict, exp_id, col.extra_fields.get("model", ""))
                     item_dict["collection"] = model_id
                     results.append(item_dict)
                     if limit is not None and len(results) >= limit:
@@ -842,12 +926,14 @@ class FesomsClient(AsyncBaseCoreClient):
         variable: Optional[str] = None
         experiment: Optional[str] = None
         model: Optional[str] = None
+        component: Optional[str] = None
         extra_props: Dict[str, str] = {}
-        _well_known = {"variable", "experiment", "model"}
+        _well_known = {"variable", "experiment", "model", "component"}
         if request:
-            variable  = request.query_params.get("variable")  or None
-            experiment = request.query_params.get("experiment") or None
-            model     = request.query_params.get("model")      or None
+            variable   = request.query_params.get("variable")   or None
+            experiment = request.query_params.get("experiment")  or None
+            model      = request.query_params.get("model")       or None
+            component  = request.query_params.get("component")   or None
             cql_expr  = request.query_params.get("filter")
             cql_lang  = request.query_params.get("filter-lang", "cql2-text")
             if cql_expr:
@@ -855,6 +941,7 @@ class FesomsClient(AsyncBaseCoreClient):
                 variable   = variable   or _cql_val(cql, "variable")
                 experiment = experiment or _cql_val(cql, "experiment")
                 model      = model      or _cql_val(cql, "model")
+                component  = component  or _cql_val(cql, "component")
                 extra_props = {k: v for k, v in cql.items() if k not in _well_known}
 
         items = self.loader.get_items_for_collection(collection_id)
@@ -866,6 +953,8 @@ class FesomsClient(AsyncBaseCoreClient):
             items = [i for i in items if i.get("properties", {}).get("experiment") == experiment]
         if model:
             items = [i for i in items if i.get("properties", {}).get("model") == model]
+        if component:
+            items = [i for i in items if i.get("properties", {}).get("component") == component]
         if extra_props:
             items = [
                 i for i in items
@@ -906,9 +995,11 @@ class FesomsClient(AsyncBaseCoreClient):
             extra_params["experiment"] = experiment
         if model:
             extra_params["model"] = model
+        if component:
+            extra_params["component"] = component
         if datetime:
             extra_params["datetime"] = datetime
-            
+
         # Add CQL2 filter parameters if present
         if request:
             cql_expr = request.query_params.get("filter")
@@ -916,7 +1007,7 @@ class FesomsClient(AsyncBaseCoreClient):
             if cql_expr:
                 extra_params["filter"] = cql_expr
                 extra_params["filter-lang"] = cql_lang
-        
+
         # Convert to properly encoded query string
         extra_qs = ""
         if extra_params:
@@ -951,8 +1042,9 @@ class FesomsClient(AsyncBaseCoreClient):
         experiment = getattr(search_request, "experiment", None)
         model      = getattr(search_request, "model", None)
         variable   = getattr(search_request, "variable", None)
+        component  = getattr(search_request, "component", None)
         extra_props: Dict[str, str] = {}
-        _well_known = {"variable", "experiment", "model"}
+        _well_known = {"variable", "experiment", "model", "component"}
 
         # stac-fastapi populates filter_expr from the POST body 'filter' key.
         # It may arrive as a raw string (cql2-text) or a dict (cql2-json).
@@ -977,6 +1069,7 @@ class FesomsClient(AsyncBaseCoreClient):
             variable   = variable   or _cql_val(cql, "variable")
             experiment = experiment or _cql_val(cql, "experiment")
             model      = model      or _cql_val(cql, "model")
+            component  = component  or _cql_val(cql, "component")
             extra_props = {k: v for k, v in cql.items() if k not in _well_known}
 
         return await self.get_search(
@@ -988,6 +1081,7 @@ class FesomsClient(AsyncBaseCoreClient):
             experiment=experiment,
             model=model,
             variable=variable,
+            component=component,
             extra_props=extra_props or None,
             **kwargs,
         )
@@ -1004,6 +1098,7 @@ class FesomsClient(AsyncBaseCoreClient):
         experiment: Optional[str] = None,
         model: Optional[str] = None,
         variable: Optional[str] = None,
+        component: Optional[str] = None,
         extra_props: Optional[Dict[str, str]] = None,
         **kwargs,
     ) -> Dict:
@@ -1011,8 +1106,9 @@ class FesomsClient(AsyncBaseCoreClient):
         base_url = self._base_url(request)
 
         # Merge CQL2 filter from GET query params (STAC Browser filter UI).
-        _well_known = {"variable", "experiment", "model"}
+        _well_known = {"variable", "experiment", "model", "component"}
         if request:
+            component  = component  or request.query_params.get("component") or None
             cql_expr = request.query_params.get("filter")
             cql_lang = request.query_params.get("filter-lang", "cql2-text")
             if cql_expr:
@@ -1020,14 +1116,19 @@ class FesomsClient(AsyncBaseCoreClient):
                 variable   = variable   or _cql_val(cql, "variable")
                 experiment = experiment or _cql_val(cql, "experiment")
                 model      = model      or _cql_val(cql, "model")
+                component  = component  or _cql_val(cql, "component")
                 extra_from_get = {k: v for k, v in cql.items() if k not in _well_known}
                 if extra_from_get:
                     extra_props = {**(extra_props or {}), **extra_from_get}
 
+        # If component is set but not in extra_props yet, route it through properties filter.
+        if component:
+            extra_props = {**(extra_props or {}), "component": ("=", component)}
+
         # Parse token from request query parameters for pagination
         if request:
             token = request.query_params.get("token") or None
-        
+
         offset = 0
         if token:
             try:
@@ -1046,17 +1147,17 @@ class FesomsClient(AsyncBaseCoreClient):
             limit=None,  # Get all items for total count
             properties=extra_props or None,
         )
-        
+
         total_matched = len(all_items)
         page = all_items[offset: offset + (limit or 10)]
-        
+
         for item in page:
             col_id = item.get("collection", "")
             item["links"] = self._item_links(base_url, col_id, item["id"])
 
         # Build extra query-string params to preserve filters in next/prev links.
         from urllib.parse import urlencode
-        
+
         extra_params = {}
         if variable:
             extra_params["variable"] = variable
@@ -1064,6 +1165,8 @@ class FesomsClient(AsyncBaseCoreClient):
             extra_params["experiment"] = experiment
         if model:
             extra_params["model"] = model
+        if component:
+            extra_params["component"] = component
         if datetime:
             extra_params["datetime"] = datetime
         if collections:
@@ -1115,6 +1218,10 @@ class FesomsearchGetRequest(BaseSearchGetRequest):
         Optional[str],
         Query(description="Filter by model component (e.g. fesom)"),
     ] = attr.ib(default=None)
+    component: Annotated[
+        Optional[str],
+        Query(description="Filter by component name (e.g. fesom)"),
+    ] = attr.ib(default=None)
     variable: Annotated[
         Optional[str],
         Query(description="Filter by variable name (e.g. ssh)"),
@@ -1128,6 +1235,7 @@ class FesomsearchGetRequest(BaseSearchGetRequest):
 class FesomsearchPostRequest(BaseSearchPostRequest):
     experiment: Optional[str] = None
     model: Optional[str] = None
+    component: Optional[str] = None
     variable: Optional[str] = None
 
 
@@ -1173,7 +1281,8 @@ class FesomsFiltersClient(AsyncBaseFiltersClient):
                     if kw and kw not in (exp_id, model)
                 ]
         extra_properties = self.loader.get_all_property_keys(collection_id or "")
-        return _make_queryables(base_url, collection_id or "", variables or None, extra_properties)
+        unique_values = self.loader.get_unique_property_values(collection_id or "")
+        return _make_queryables(base_url, collection_id or "", variables or None, extra_properties, unique_values)
 
 
 # ---------------------------------------------------------------------------
